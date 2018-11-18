@@ -1,3 +1,4 @@
+
 // 19, 18, 17, 16, 15, 14 atmega328p pin to
 // rs, en, d4, d5, d6, d7 lcd pin  
 //28 ard - 28 atmega  --> SCL
@@ -21,15 +22,16 @@ LiquidCrystal lcd(9, 10, 12, 13, 14, 15);
 //LiquidCrystal lcd(13, 12, 8, 9, 10, 11);
 #define DS3231_I2C_ADDRESS 0x68
 #define DS3231_TEMPERATURE_ADDR 0x11
-//#define relayPin 7
-#define relayPin 2
+#define relayPin 7
+//#define relayPin 2
 #define potPin A2
-#define buttonPin A3
-#define buzzerPin 0
+#define buzzerPin 5
 
 
 const byte numRows   = 4;
 const byte numCols   = 4;
+int arrayam[12] = {0,0,0,0,0,0,0,0,0,0,0,0};
+int arraypm[12] = {0,0,0,0,0,0,0,0,0,0,0,0};
 char keymap[numRows][numCols]= { 
   {'1', '2', '3', 'A'},
   {'4', '5', '6', 'B'},
@@ -75,16 +77,6 @@ float DS3231_get_treg()
     return rv;
 }
 
-//void storeEeprom(int address,int value)
-//{
-//  int a = EEPROM.read(address);
-//  if(value != a){
-//    EEPROM.write(address, value);
-//    lcd.clear();
-//    lcd.print("Store In Eeprom");
-//    delay(350);
-//  }
-//}
 
 void setup()
 {
@@ -92,64 +84,192 @@ void setup()
   //Serial.begin(9600);
   //Serial.print("Ok !!");
   lcd.begin(16,2);
-  //pinMode(7,OUTPUT);
-  //pinMode(5,OUTPUT);
-  //digitalWrite(7,LOW);
+  lcd.print("helo");
+  pinMode(relayPin,OUTPUT);
+  pinMode(buzzerPin,OUTPUT);
+  digitalWrite(buzzerPin,HIGH);
+  digitalWrite(relayPin,HIGH);
   delay(500);
-    dayhour1    = EEPROM.read(1);
-    dayminute1 = EEPROM.read(2);
-    dayhour2    = EEPROM.read(3);
-    dayminute2  = EEPROM.read(4);
-    nighthour1  = EEPROM.read(5);
-    nightminute2  = EEPROM.read(6);
-    nighthour2  = EEPROM.read(7);
-    nightminute2 = EEPROM.read(8);
-
-  
+   
+    byte firstdigit  = EEPROM.read(1);
+    byte seconddigit = EEPROM.read(2);
+    byte i=3;
+    byte j =0;
+    lcd.print("mutu1");
+   
+      for(i = 3;i <firstdigit+3; i++){
+        arrayam[i-3] = EEPROM.read(i);        
+      }
+      while(i < seconddigit+3){
+         arraypm[j] = EEPROM.read(i);
+         j++;i++;
+      }
+     
+      
  // pinMode(interruptpin,INPUT_PULLUP);
   //attachInterrupt(digitalPinToInterrupt(interruptpin),changeTime,LOW);
   // set the initial time here:
   // DS3231 seconds, minutes, hours, day, date, month, year
-   //setDS3231time(30,25,18,4,15,5,18);
+   //setDS3231time(59,minute2,hour2,4,15,5,18);
 }
 
-void updateEeprom(byte tem3, byte tem4,byte tem5,byte tem6,byte tem7,byte tem8,byte tem9,byte tem10)
-{
-  EEPROM.write(1,tem3);
-  EEPROM.write(2,tem4);
-  EEPROM.write(3,tem5);
-  EEPROM.write(4,tem6);
-  EEPROM.write(5,tem7);
-  EEPROM.write(6,tem8);
-  EEPROM.write(7,tem9);
-  EEPROM.write(8,tem10);
-  
-}
+void loop()
+{  
+   digitalWrite(buzzerPin,LOW);
+  lcd.setCursor(0,0);
+  lcd.print("SMART-FARM");
+   displayTime(); // display the real-time clock data on the Serial Monitor,
+   delay(500);   
+   int tempC = DS3231_get_treg();  // Reads the temperature as an int, to save memory
+   lcd.setCursor(9,2);
+   lcd.print("TMP:");
+   lcd.print(tempC);
+   lcd.print("c");
 
-void updateVar(byte tem3, byte tem4,byte tem5,byte tem6,byte tem7,byte tem8,byte tem9,byte tem10)
-{
-  dayhour1     = tem3;
-  dayminute1   = tem4;
-  dayhour2     = tem5;
-  dayminute2   = tem6;
-  nighthour1   = tem7;
-  nightminute1 = tem8;
-  nighthour2   = tem9;
-  nightminute2 = tem10;
-//  if((durationday1 + daytime1)>60){
-//    if((daytime1 += 1)>24){};
-//    durationday1 = durationday1 -60;
+
+   
+//   // switch section -----------
+//   int currenttime = (hour*100)+minute;
+//   //if(((hour >= dayhour1 && hour <=dayhour1+durationday1) && (minute >= daytime2 && minute <=daytime2+durationday2)) || ((hour >= nighttime1 && hour <=nighttime1+durationnight1) && (minute >= nighttime2 && minute <=nighttime2+durationnight2)))
+//   if( ((((dayhour1*100)+dayminute1) <= currenttime ) && (((dayhour2*100)+dayminute2) >= currenttime )) || ((((nighthour1*100)+nightminute1) <= currenttime ) && (((nighthour2*100)+nightminute2) >=currenttime)))
+//   {
+//    
+//     digitalWrite(relayPin,HIGH);
+//   }else{
+//     digitalWrite(relayPin,LOW);
 //    }
-//  if((durationday2 + daytime2)>60){
-//    daytime2 += 1;
-//    durationday2 = durationday2 -60;
-//    }
-//   if((durationnight1 + nighttime1)>60){
-//    daytime1+=1;
-//    durationday2 = durationday2 -60;
-//    }
- 
+//
+//   if(((((dayhour1*100)+dayminute1)- currenttime) == 1) || (((((nighthour1*100)+ nightminute1)) - currenttime) == 1))
+//   {
+//     lcd.clear();
+//     lcd.setCursor(2,2);
+//     lcd.print("Switch ON");
+//     delay(300);
+//     digitalWrite(buzzerPin,HIGH);
+//     delay(200);
+//     digitalWrite(buzzerPin,LOW);
+//     lcd.clear();
+//   }
+//
+//    
+
+int arrayam1[12] = {0,0,0,0,0,0,0,0,0,0,0,0};
+int arraypm1[12] = {0,0,0,0,0,0,0,0,0,0,0,0};
+byte len1;
+byte len2;
+  char valueloop = getButton();
+  if(valueloop == 'D')
+   {  
     
+    len1 = inputvalue("<-----AM----->",arrayam1); 
+     for(int i=0;i < (sizeof(arrayam1)/sizeof(int)) ;i++){
+            lcd.setCursor(i+1,0);
+            lcd.print(arrayam1[i]);
+            delay(40);
+          }
+          lcd.setCursor(9,1);
+          lcd.print((sizeof(arrayam1)/sizeof(int)));
+          delay(300);  
+   len2 = inputvalue("<-----PM----->",arraypm1);
+     for(int i=0;i < (sizeof(arraypm1)/sizeof(int)) ;i++){
+            lcd.setCursor(i+1,0);
+            lcd.print(arraypm1[i]);
+            delay(40);
+          }
+          lcd.setCursor(9,1);
+          lcd.print((sizeof(arraypm1)/sizeof(int)));
+          delay(300); 
+     updateEeprom(arrayam1,arraypm1); 
+     copy(arrayam1,arrayam,len1);
+     copy(arraypm1,arraypm,len2);
+     
+    lcd.print("sexcy"); 
+   }
+   //-----------------clock setting----------------------------------------
+
+      if(valueloop == 'C'){
+        lcd.clear();
+        byte temmillis2;
+        byte  temmillis1 = 0;
+        int timevalue[10];
+        char valueup;
+        byte hour1, hour2;
+        byte minute1, minute2;
+        lcd.setCursor(0,0);
+        lcd.print("HOUR");
+        lcd.setCursor(9,0);
+        lcd.print("MINUTE");
+        byte ctmp1=0;
+        byte dtmp1=0;
+        lcd.setCursor(ctmp1,1);
+        do{          
+          valueup = getButton();
+          if((valueup != NO_KEY) && (valueup != 'B')&& (valueup != 'C')&& (valueup != 'D')&& (valueup != '*')&& (valueup != '0')&& (valueup != '#')){
+            lcd.setCursor(ctmp1,1);
+            hour1 = valueup -'0';           
+            ctmp1++;
+            dtmp1++;
+            if(ctmp1 == 1){hour2 += hour1;break;}
+            hour2=hour1*10;
+          }
+          if(ctmp1 < 1){
+          if(valueup == '*'){lcd.setCursor(ctmp1,1);
+          lcd.print("10");break;}
+         if(valueup == '0'){lcd.setCursor(ctmp1,1);
+          lcd.print("11");break;}
+         if(valueup == '#'){lcd.setCursor(ctmp1,1);
+          lcd.print("12");break;}
+          } 
+         lcd.blink();
+        }while(valueup != 'B');
+      
+      ctmp1=0;
+      ctmp1=0;
+      lcd.setCursor(ctmp1+9,1);
+     do{
+          valueup = getButton();
+          if((valueup != NO_KEY) && (valueup != 'B')&& (valueup != 'C')&& (valueup != 'D')&& (valueup != '*')&& (valueup != '0')&& (valueup != '#')){
+            lcd.setCursor(ctmp1 +9,1);
+            minute1 = valueup - '0';
+            ctmp1++;dtmp1++;
+            if(ctmp1 == 1){minute2 += minute1;break;}
+            minute2=minute1*10;
+          }
+          if(ctmp1 <1){
+           if(valueup == '*'){lcd.setCursor(ctmp1+11,1);
+          lcd.print("10");break;}
+         if(valueup == '0'){lcd.setCursor(ctmp1+11,1);
+          lcd.print("11");break;}
+         if(valueup == '#'){lcd.setCursor(ctmp1+11,1);
+          lcd.print("12");break;}
+          }
+        }while(valueup != 'B');
+        setDS3231time(59,minute2,hour2,4,15,5,18);
+        lcd.noBlink();
+     }
+      
+   lcd.print("kto ma "); 
+  //   updateEeprom(temp3,temp4,temp5,temp6,temp7,temp8,temp9,temp10); 
+    // updateVar(temp3,temp4,temp5,temp6,temp7,temp8,temp9,temp10); 
+     lcd.clear();   
+  }
+
+
+void updateEeprom(int arrayam[],int arraypm[])
+{ byte i=2;
+  byte j=0;
+  while(arrayam[i] != 0){
+      EEPROM.write(i+1,arrayam[i]);
+      i++;
+  }
+  EEPROM.write(1,i-2);
+   while(arraypm[i] != 0){
+      EEPROM.write(i+1,arraypm[j]);
+      i++;
+      j++;
+  }
+  EEPROM.write(1,i-2);
+  
 }
 
 void setDS3231time(byte second, byte minute, byte hour, byte dayOfWeek, byte
@@ -203,207 +323,15 @@ void displayTime()
   lcd.print(":");
    if (second<10){lcd.print("0");}
   lcd.print(second);
-  
-//  Serial.print(hour, DEC);
-//  // convert the byte variable to a decimal number when displayed
-//  Serial.print(":");
-//  if (minute<10)
-//  {
-//    Serial.print("0");
-//  }
-//  Serial.print(minute, DEC);
-//  Serial.print(":");
-//  if (second<10)
-//  {
-//    Serial.print("0");
-//  }
-//  Serial.print(second, DEC);
-//  Serial.print(" ");
-//  Serial.print(dayOfMonth, DEC);
-//  Serial.print("/");
-//  Serial.print(month, DEC);
-//  Serial.print("/");
-//  Serial.print(year, DEC);
-//  Serial.print(" Day of week: ");
   lcd.setCursor(13,0);
   
-  switch(dayOfWeek){
-  case 1:
-    lcd.print("Sun");
-    break;
-  case 2:
-    lcd.print("Mon");
-    break;
-  case 3:
-    lcd.print("Tue");
-    break;
-  case 4:
-    lcd.print("Wed");
-    break;
-  case 5:
-    lcd.print("Thr");
-    break;
-  case 6:
-    lcd.print("Fri");
-    break;
-  case 7:
-    lcd.print("Sat");
-    break;
-  }
 }
-
-
-void loop()
-{  
-//  lcd.setCursor(0,0);
-//  lcd.print("SMART-FARM");
-//   displayTime(); // display the real-time clock data on the Serial Monitor,
-//   delay(500);   
-//   int tempC = DS3231_get_treg();  // Reads the temperature as an int, to save memory
-//   lcd.setCursor(9,2);
-//   lcd.print("TMP:");
-//   lcd.print(tempC);
-//   lcd.print("c");
-
-
-   
-//   // switch section -----------
-//   int currenttime = (hour*100)+minute;
-//   //if(((hour >= dayhour1 && hour <=dayhour1+durationday1) && (minute >= daytime2 && minute <=daytime2+durationday2)) || ((hour >= nighttime1 && hour <=nighttime1+durationnight1) && (minute >= nighttime2 && minute <=nighttime2+durationnight2)))
-//   if( ((((dayhour1*100)+dayminute1) <= currenttime ) && (((dayhour2*100)+dayminute2) >= currenttime )) || ((((nighthour1*100)+nightminute1) <= currenttime ) && (((nighthour2*100)+nightminute2) >=currenttime)))
-//   {
-//    
-//     digitalWrite(relayPin,HIGH);
-//   }else{
-//     digitalWrite(relayPin,LOW);
-//    }
-//
-//   if(((((dayhour1*100)+dayminute1)- currenttime) == 1) || (((((nighthour1*100)+ nightminute1)) - currenttime) == 1))
-//   {
-//     lcd.clear();
-//     lcd.setCursor(2,2);
-//     lcd.print("Switch ON");
-//     delay(300);
-//     digitalWrite(buzzerPin,HIGH);
-//     delay(200);
-//     digitalWrite(buzzerPin,LOW);
-//     lcd.clear();
-//   }
-//
-//    
-//   if((((((nighthour2*100)+ nightminute2)) - currenttime) == 1) || ((((dayhour2*100)+dayminute2)- currenttime) == 1))
-//   {
-//   lcd.clear();
-//     lcd.setCursor(2,2);
-//     lcd.print("Switch Off");
-//     delay(300);
-//     digitalWrite(buzzerPin,HIGH);
-//     delay(200);
-//     digitalWrite(buzzerPin,LOW);
-//     lcd.clear();
-//   }  
-   
-  // if(analogRead(buttonPin) < 1020)
-  byte tmp1=0;
-  int inst[12];
-  if(getButton() == 'D')
-   {
-    char valueup;  
-    do{
-         lcd.clear();
-         lcd.setCursor(1,tmp1);
-         //lcd.print("Hi");
-          
-         char value = getButton();
-         valueup = value;
-         if((value != NO_KEY) && (value != 'B')&& (value != 'C')&& (value != 'D')){
-          inst[tmp1] = value -'0';
-          //lcd.print(typeid((value -'0')));    hernaaaaaaaaaaa xaaaaaaaaaaaa
-          lcd.setCursor(1,6);
-          lcd.print(inst[tmp1]);
-          delay(20);
-          tmp1++;
-         }
-//        int temmillis1 = millis();
-//         int temmillis2;  
-//         if((temmillis2 - temmillis1 )>40000){break;} 
-          
-    }while(valueup != 'B');
-    lcd.print("sexcy");
-   }   
-   lcd.print("kto ma "); 
-//     updateEeprom(temp3,temp4,temp5,temp6,temp7,temp8,temp9,temp10); 
-//     updateVar(temp3,temp4,temp5,temp6,temp7,temp8,temp9,temp10); 
-//     lcd.clear();  
-//         
-//        do
-//         {
-//          if(getButton() == 1)
-//          {
-//              byte temp3 = updatevalue("Day Hour 1",24);delay(350);
-//              byte temp4 = updatevalue("DayMinute 1",60);delay(350);
-//              byte temp5 = updatevalue("Day Hour 2 ",24);delay(350);
-//              byte temp6 = updatevalue("Day Minute 2",60);delay(350);
-//              byte temp7 = updatevalue("NightHour 1",24);delay(350);
-//              byte temp8 = updatevalue("NightMinute 1",60);delay(350);             
-//              byte temp9 = updatevalue("Night Hour 2",24);delay(350);
-//              byte temp10= updatevalue("Night Minute 2",60);delay(350);
-//              updateEeprom(temp3,temp4,temp5,temp6,temp7,temp8,temp9,temp10); 
-//              updateVar(temp3,temp4,temp5,temp6,temp7,temp8,temp9,temp10); 
-//              lcd.clear();          
-//          }
-//
-//         if(getButton() == 3)
-//         {
-//          byte temp7 = updatevalue("Second ",60);delay(350);          
-//          byte temp9 = updatevalue("Minute ",60);delay(350);
-//          byte temp10 = updatevalue("Hour ",24);delay(350);
-//          byte temp11 = updatevalue("Day ",7);delay(350);
-//          byte temp12 = updatevalue("Date ",32);delay(350);
-//          byte temp13 = updatevalue("Month ",12);delay(350);
-//          byte temp14 = updatevalue("Year ",30);delay(350);
-//          lcd.clear();
-//          setDS3231time(temp7,temp9,temp10,temp11,temp12,temp13,temp14);
-//          
-//         }
-
-//          temmillis2 = millis()- temmillis1;
-//          if((temmillis2 - temmillis1 )>20000){break;}         
-//         }while(!(getButton() == 2));
-//      lcd.clear();
-//      lcd.setCursor(5,0); 
-//      lcd.print("Saved !!!!!!!!");
-//      delay(500);
-//      lcd.clear();
-   
-  }
-
-
-
-
-//int updatevalue(String sa,float num ){
-//              int temp2;
-//              lcd.clear();
-//              do
-//              {
-//              lcd.setCursor(1,0);
-//              lcd.print(sa);
-//              lcd.setCursor(4,2);
-//              int temp1 = analogRead (potPin);
-//              temp2 = temp1 * (num / 1023);
-//              //delay(1000); // slow vayo dheri so tala add garako
-//              lcd.print(temp2);
-//              lcd.print("  ");              
-//              delay(200);
-//              }while(!(getButton() == 2));
-//              return temp2;
-//             }
 
 
 char getButton()
 {
  char keypressed = myKeypad.getKey();
-  if (keypressed != NO_KEY)
+  if(keypressed != NO_KEY)
   {
   lcd.setCursor(10,2);
   //lcd.print(keypressed);
@@ -412,9 +340,42 @@ char getButton()
    return NO_KEY;
 }
 
+byte inputvalue(String display1,int arrayvalue[] ){
+  byte ctmp1=0;
+  byte dtmp1=0;
+  //int inst[12]={0,0,0,0,0,0,0,0,0,0,0,0};
+  byte len;
+  char valueup; 
+    lcd.clear();
+    lcd.setCursor(2,0);
+     lcd.print(display1); 
+    do{ 
+         char value = getButton();
+         valueup = value;
+         if((value != NO_KEY) && (value != 'B')&& (value != 'C')&& (value != 'D') && (value != '*')&& (value != '0')&& (value != '#')){
+          arrayvalue[dtmp1] = value -'0';
+          //lcd.print(typeid((value -'0')));    hernaaaaaaaaaaa xaaaaaaaaaaaa
+          lcd.setCursor(ctmp1,1);
+          lcd.print(arrayvalue[dtmp1]);         
+          delay(20);
+          dtmp1++;
+          ctmp1++;
+         }
+         if(value == '*'){arrayvalue[dtmp1] = 10;lcd.setCursor(ctmp1,1);
+          lcd.print(arrayvalue[dtmp1]);ctmp1++;ctmp1++;dtmp1++;}
+         if(value == '0'){arrayvalue[dtmp1] = 11;lcd.setCursor(ctmp1,1);
+          lcd.print(arrayvalue[dtmp1]);ctmp1++;ctmp1++;dtmp1++;}
+         if(value == '#'){arrayvalue[dtmp1] = 12;lcd.setCursor(ctmp1,1);
+          lcd.print(arrayvalue[dtmp1]);ctmp1++;ctmp1++;dtmp1++;}
+//        int temmillis1 = millis();
+//         int temmillis2;  
+//         if((temmillis2 - temmillis1 )>40000){break;} 
+          if(dtmp1 >=12){break;}
+    }while(valueup != 'B');
+    return dtmp1;
+   
+}
 
-
-
-// select option ma adhkane, button type nahune lang lang hune. capacitor thulo vara khai faida ke befaida.
-//common ground vayo/led 10k ma pane jallyo
-
+void copy(int* src, int* dst, int len) {
+    memcpy(dst, src, sizeof(src[0])*len);
+}
