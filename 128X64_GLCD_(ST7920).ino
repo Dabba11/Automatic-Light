@@ -313,7 +313,7 @@ void loop(void) {
     byte k=12;
     byte j=0;
     char valueloop = getButton();
-    delay(1500);
+    delay(500);
     /*------------LIGHT SCHEDULE SETTING--------------*/  
     if(valueloop == 'C'){
         len1 = inputvalue("Enter AM Schedule:", arrayam1);
