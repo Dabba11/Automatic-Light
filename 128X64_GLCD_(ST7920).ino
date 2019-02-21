@@ -24,7 +24,7 @@
 #include <Keypad.h>
 #include "Wire.h"
 /*Initialize for the display*/
-U8G2_ST7920_128X64_F_SW_SPI u8g2(U8G2_R0, 6, 4, 2); //u8g2(U8G2_R0, En, Rw, Rs)
+U8G2_ST7920_128X64_F_SW_SPI u8g2(U8G2_R0, 2, 4, 6); //u8g2(U8G2_R0, En, Rw, Rs)
 
 
 #define DS3231_I2C_ADDRESS 0x68
@@ -144,9 +144,6 @@ void setup(void) {
     u8g2.print("2nd - ");
     u8g2.sendBuffer();
     delay(500);
-    //    if (seconddigit < 10){
-    //        u8g2.print("0");
-    //    }
     u8g2.print(seconddigit);
     u8g2.print(" hrs");
     u8g2.sendBuffer();
@@ -203,17 +200,6 @@ void setup(void) {
     rtcdelaytime = millis();
     displaytime();
     tower();
-    u8g2.setFont(u8g2_font_8x13_mf);
-    u8g2.drawStr(0, 38, "A:");
-    u8g2.drawHLine(0, 37, 128);
-    u8g2.sendBuffer();
-    showSchedule(arrayam, firstdigit, 38);
-    
-    u8g2.setFont(u8g2_font_8x13_mf);
-    u8g2.drawStr(0, 51, "P:");
-    u8g2.sendBuffer();
-    showSchedule(arraypm, seconddigit, 51);
-    tower();
 }
 
 void(* resetFunc) (void) = 0; //declare reset function at address 0
@@ -236,40 +222,89 @@ void loop(void) {
     //--------------- switch section -----------//
     byte flag3 = 0, flag4 = 0;
     if(hour <12){
-        for( byte i=0; i<12; i++){
-            if(((arrayam[i] == hour) && (arrayam[i] !=0)) ||( (12-arrayam[i] == hour) && (arrayam[i] == 12)) ){
+        for(byte i=0; i<12; i++){
+            if(((arrayam[i] == hour) && (arrayam[i] !=0)) || ((12-arrayam[i] == hour) && (arrayam[i] == 12))){
                 digitalWrite(relayPin,HIGH);
-                delay(2000);
-                // SendMessage();
+                delay(1000);
                 flag3 = 1;
                 if(flag1 == 0){
                     digitalWrite(buzzerPin,HIGH);
+                    //turning on SendMessage();
+                    setpixels(0, 38, 128, 30);
+                    u8g2.setFont(u8g2_font_helvB08_tf);
+                    u8g2.drawStr(12, 43, "Turning Light ON..");
+                    u8g2.sendBuffer();
                     delay(2000);
                     digitalWrite(buzzerPin,LOW);
+                    delay(2000);
+                    setpixels(0, 38, 128, 30);
+                    
+                    u8g2.sendBuffer();
+                    toShowSchedule();
                     flag1=1;
                     delay(2000);
                 }
             }
         }
-        if(flag3 == 0){digitalWrite(relayPin,LOW);}
+        if(flag3 == 0){
+            digitalWrite(relayPin,LOW);
+            if(flag1 = 1){
+                digitalWrite(buzzerPin,HIGH);
+                //turning off message
+                setpixels(0, 38, 128, 30);
+                u8g2.setFont(u8g2_font_helvB08_tf);
+                u8g2.drawStr(12, 43, "Turning Light OFF..");
+                u8g2.sendBuffer();
+                delay(2000);
+                flag1 = 0;
+                digitalWrite(buzzerPin,LOW);
+                delay(2000);
+                setpixels(0, 38, 128, 30);
+                u8g2.sendBuffer();
+                toShowSchedule();
+            }
+        }
     }
     if(hour >11){
-        for( byte i=0;i<12;i++){
+        for(byte i=0; i<12; i++){
             if((((arraypm[i] +12 == hour) || (arraypm[i] == hour))) &&(arraypm[i] !=0)){
                 digitalWrite(relayPin,HIGH);
                 delay(2000);
-                //SendMessage();
                 flag4 = 1;
                 if(flag2 == 0){
                     digitalWrite(buzzerPin,HIGH);
+                    //turning on SendMessage();
+                    setpixels(0, 38, 128, 30);
+                    u8g2.setFont(u8g2_font_helvB08_tf);
+                    u8g2.drawStr(12, 43, "Turning Light ON..");
+                    u8g2.sendBuffer();
                     delay(2000);
                     digitalWrite(buzzerPin,LOW);
+                    delay(2000);
+                    setpixels(0, 38, 128, 30);
+                    u8g2.sendBuffer();
+                    toShowSchedule();
                     flag2=1;
                 }
             }
         }
         if(flag4 == 0){
             digitalWrite(relayPin,LOW);
+            if (flag2 == 1){
+                digitalWrite(buzzerPin,HIGH);
+                //turning off message
+                setpixels(0, 38, 128, 30);
+                u8g2.setFont(u8g2_font_helvB08_tf);
+                u8g2.drawStr(12, 43, "Turning Light OFF..");
+                u8g2.sendBuffer();
+                delay(2000);
+                flag2 = 0;
+                digitalWrite(buzzerPin,LOW);
+                delay(2000);
+                setpixels(0, 38, 128, 30);
+                u8g2.sendBuffer();
+                toShowSchedule();
+            }
         }
     }
     
@@ -286,7 +321,7 @@ void loop(void) {
             goto exittime1;
         }
         setpixels(0, 26, 128, 40);
-        u8g2.sendBuffer(); //The cleared pixels have to be transferred from buffer to the display
+        u8g2.sendBuffer(); //The cleared pixels have to be transferred from buffer to the display before any delay
         delay(500);
         len2 = inputvalue("Enter PM Schedule:", arraypm1);
         if (len2 == 13){
@@ -407,7 +442,6 @@ void loop(void) {
           u8g2.drawStr(1, 53, "D=NEXT, A=DELETE");
           u8g2.sendBuffer();
           byte ctmp1 = 14;
-          byte dtmp1 = 0;
           u8g2.setFont(u8g2_font_missingplanet_tn);
           u8g2.setCursor(ctmp1, 38);
           //------HOUR SETUP------//
@@ -431,7 +465,6 @@ void loop(void) {
                       hour2 = hour1;
                   }
                   ctmp1 += 6;
-                  dtmp1++;
               }
               if(ctmp1 < 20){
                   if(valueup == '*'){
@@ -460,14 +493,12 @@ void loop(void) {
               if((valueup == 'A') && (ctmp1 != 14)){ 
                   if(hour2 > 9){
                       ctmp1 -= 12;
-                      dtmp1--;
                       setpixels(ctmp1, 38, 13, 11);
                       u8g2.sendBuffer();
                       hour2 = 0;
                   }
                   else{
                       ctmp1 -= 6;
-                      dtmp1--;
                       setpixels(ctmp1, 38, 13, 11);
                       u8g2.sendBuffer();
                       hour2 = 0;
@@ -483,7 +514,6 @@ void loop(void) {
         //------MINUTE SETUP-------//
         gotominute:
           ctmp1=61;
-          dtmp1=0;
           u8g2.setFont(u8g2_font_cu12_tr);
           u8g2.drawStr(52, 37, ">");
           setpixels(6, 38, 8, 11);
@@ -529,7 +559,6 @@ void loop(void) {
                       minute2 = minute1;
                   }
                   ctmp1 = ctmp1 + 6;
-                  dtmp1++;
               }
               if(ctmp1 < 61){
                   if(valueup == '*'){
@@ -554,14 +583,12 @@ void loop(void) {
               if(valueup == 'A'){
                   if(minute2 > 9){
                       ctmp1 -= 12;
-                      dtmp1--;
                       minute2=0;
                       setpixels(ctmp1, 38, 13,11);
                       u8g2.sendBuffer(); 
                   }
                   else{
                       ctmp1 -= 6;
-                      dtmp1--;
                       setpixels(ctmp1, 38, 13,11);
                       minute2 = 0;  
                       u8g2.sendBuffer(); 
@@ -673,19 +700,9 @@ void loop(void) {
           u8g2.print(tempC);
           u8g2.sendBuffer();
     }
-    byte firstdigit  = EEPROM.read(1);
-    byte seconddigit = EEPROM.read(2);
-    tower();
-    u8g2.setFont(u8g2_font_8x13_mf);
-    u8g2.drawStr(0, 38, "A:");
-    u8g2.drawHLine(0, 37, 128);
-    u8g2.sendBuffer();
-    showSchedule(arrayam, firstdigit, 38);
     
-    u8g2.setFont(u8g2_font_8x13_mf);
-    u8g2.drawStr(0, 51, "P:");
-    u8g2.sendBuffer();
-    showSchedule(arraypm, seconddigit, 51);
+    tower();
+    toShowSchedule();
     tower();
 }
 
@@ -793,11 +810,6 @@ void displaytime(){
     }
     u8g2.print(minute);
     u8g2.sendBuffer();
-    //    u8g2.print(":");
-    //    if (second < 10){
-    //      u8g2.print("0");
-    //    }
-    //    u8g2.print(second);
 }
 
 byte inputvalue(String display1, int arrayvalue[]){
@@ -930,7 +942,6 @@ void copy(int src[], int dst[], int len){
 float DS3231_get_treg()
 {
     int rv;  // Reads the temperature as an int, to save memory
-    //float rv;
    
     uint8_t temp_msb, temp_lsb;
     int8_t nint;
@@ -977,6 +988,21 @@ void setpixels(int a, int b, int c, int d){
           }
         }
         u8g2.setDrawColor(1); //1 in order to write with white color
+}
+
+void toShowSchedule(){
+    byte firstdigit  = EEPROM.read(1);
+    byte seconddigit = EEPROM.read(2);
+    u8g2.setFont(u8g2_font_8x13_mf);
+    u8g2.drawStr(0, 38, "A:");
+    u8g2.drawHLine(0, 37, 128);
+    u8g2.sendBuffer();
+    showSchedule(arrayam, firstdigit, 38);
+    
+    u8g2.setFont(u8g2_font_8x13_mf);
+    u8g2.drawStr(0, 51, "P:");
+    u8g2.sendBuffer();
+    showSchedule(arraypm, seconddigit, 51);
 }
 
 void showSchedule(int arrays[], int len, int pxht){
