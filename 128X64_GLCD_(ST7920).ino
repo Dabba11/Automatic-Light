@@ -10,6 +10,7 @@
 //18 = (Vee/Vout) Contrast == 1 leg of Contrast pot
 //19 = Backlight == Anode (one resistor end) == 220ohm R == 5V
 //20 = Backlight == Cathode (other resistor end) == GND
+//Potentiometer is not required for the GLCD model 12864B V2.0 since it has its own potentiometer on it's back
 
 #include <Arduino.h>
 #include <U8g2lib.h>
