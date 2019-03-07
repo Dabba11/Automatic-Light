@@ -11,6 +11,9 @@
 //19 = Backlight == Anode (one resistor end) == 220ohm R == 5V
 //20 = Backlight == Cathode (other resistor end) == GND
 //Contrast Pot not required, built in pot for 12864B V2.0
+//u8g2lib for display
+//Custom Keypad library - OnewireKeypad
+
 #include <Arduino.h>
 #include <U8g2lib.h>
 
@@ -21,10 +24,11 @@
 #include <Wire.h>
 #endif
 #include <EEPROM.h>
-#include <Keypad.h>
+
+#include <OnewireKeypad.h>
 #include "Wire.h"
 /*Initialize for the display*/
-U8G2_ST7920_128X64_1_SW_SPI u8g2(U8G2_R0, 3, 5, 2); //u8g2(U8G2_R0, En, Rw, Rs) (2, 4, 6);
+U8G2_ST7920_128X64_1_SW_SPI u8g2(U8G2_R0, 2, 4, 6); //u8g2(U8G2_R0, En, Rw, Rs) (2, 4, 6);
 //MicroController mapping, u8g2(U8G2_R0, 3, 5, 2)
 
 
@@ -45,15 +49,16 @@ int arrayam[12] = {0,0,0,0,0,0,0,0,0,0,0,0};
 int arraypm[12] = {0,0,0,0,0,0,0,0,0,0,0,0};
 int arrayam1[12] = {0,0,0,0,0,0,0,0,0,0,0,0};
 int arraypm1[12] = {0,0,0,0,0,0,0,0,0,0,0,0};
-char keymap[numRows][numCols]= { 
-  {'1', '2', '3', 'A'},
-  {'4', '5', '6', 'B'},
-  {'7', '8', '9', 'C'},
-  {'*', '0', '#', 'D'} };
+char KEYS[]= { 
+  0, '1', '4', '7', '*',
+     '2', '3', 'A', '5',
+     '6', 'B', '8', '9',
+     '0', 'C', '#', 'D'};
 
-byte rowPins[numRows] = {39,41,43,45}; //Rows 0 to 3
-byte colPins[numCols]= {31,33,35,37}; //Columns 0 to 3
-Keypad myKeypad= Keypad(makeKeymap(keymap), rowPins, colPins, numRows, numCols);
+//byte rowPins[numRows] = {39,41,43,45}; //Rows 0 to 3
+//byte colPins[numCols]= {31,33,35,37}; //Columns 0 to 3
+OnewireKeypad <Print, 16 > KP2(Serial, KEYS, 4, 4, A0, 4700, 1000 );
+//Keypad myKeypad= Keypad(makeKeymap(keymap), rowPins, colPins, numRows, numCols);
 
 byte second, minute, hour;
 
@@ -67,9 +72,10 @@ void setup(void) {
     digitalWrite(4, HIGH);
     u8g2.begin();                                             /*Initialize u8g2*/
     u8g2.setFontPosBottom();                                  /*It is (bottom - 2) by default!! Set the cursor at the bottom left of any character*/
-    myKeypad.setHoldTime(80000);
-    myKeypad.setDebounceTime(200);
-    myKeypad.addEventListener(keypadEvent);
+    KP2.SetKeypadVoltage(5.0);
+//    KP2.setHoldTime(80000);
+//    KP2.setDebounceTime(200);
+//    myKeypad.addEventListener(keypadEvent);
     u8g2.clearDisplay(); 
     /*  NOTE :::: u8g2.sendBuffer() should always be called before a delay is applied or else ONLY buffer will be written with delay, display will be all at once*/
     delay(3500);
@@ -461,7 +467,7 @@ void loop(void) {
 //                      goto check2;
 //                  }
 //              }
-              if(valueup == 'A'){
+              if((valueup == 'A') &&(ctmp1 != 61)){
                   if(minute2 > 9){
                       ctmp1 -= 14;
                       minute2=0;
@@ -605,27 +611,27 @@ byte bcdToDec(byte val){return( (val/16*10) + (val%16) );}
 
 
 
-
-void keypadEvent(KeypadEvent valueloop){
-    if(myKeypad.getState() == HOLD){
-        if( valueloop == 'A'){
-            digitalWrite(buzzerPin,HIGH);
-            u8g2.firstPage();
-            do{
-                u8g2.drawStr(10, 26, "RESETTING...");
-            }while(u8g2.nextPage());
-            for(i=0; i< EEPROM.length(); i++){
-                EEPROM.write(i,0);
-            }
-            delay(3000);
-            digitalWrite(buzzerPin,LOW);
-            
-            u8g2.clearDisplay();
-            delay(2000);
-            resetFunc();
-        }            
-    }
-}
+///*Resetting part*/
+//void keypadEvent(KeypadEvent valueloop){
+//    if(myKeypad.getState() == HOLD){
+//        if( valueloop == 'A'){
+//            digitalWrite(buzzerPin,HIGH);
+//            u8g2.firstPage();
+//            do{
+//                u8g2.drawStr(10, 26, "RESETTING...");
+//            }while(u8g2.nextPage());
+//            for(i=0; i< EEPROM.length(); i++){
+//                EEPROM.write(i,0);
+//            }
+//            delay(3000);
+//            digitalWrite(buzzerPin,LOW);
+//            
+//            u8g2.clearDisplay();
+//            delay(2000);
+//            resetFunc();
+//        }            
+//    }
+//}
 
 void firstpagedisplay(){
     unsigned int balance;
@@ -774,9 +780,11 @@ void readDS3231time(byte *second,byte *minute,byte *hour)
 
 
 char getButton(){
-    char keypressed = myKeypad.getKey();
-    if((keypressed != NO_KEY) &&(myKeypad.getState()== PRESSED)){
-        return keypressed;
+    //char keypressed = KP2.Getkey();
+    delay(1251);
+    if (char key = KP2.Getkey()){
+      //if((keypressed != NO_KEY) &&(KP2.Key_State()== PRESSED)){
+        return key;
     } 
     return NO_KEY;
 }
