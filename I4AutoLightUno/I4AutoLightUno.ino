@@ -57,7 +57,7 @@ char KEYS[]= {
 
 //byte rowPins[numRows] = {39,41,43,45}; //Rows 0 to 3
 //byte colPins[numCols]= {31,33,35,37}; //Columns 0 to 3
-OnewireKeypad <Print, 16 > KP2(Serial, KEYS, 4, 4, A0, 4700, 1000 );
+OnewireKeypad <Print, 16 > KP2(Serial, KEYS, 4, 4, A0, 4700, 1000 ); /*The keypad's data pin is A0 (for uC its pin 23) by default, changing this pin in sketch has no change in behaviour of keypad*/
 //Keypad myKeypad= Keypad(makeKeymap(keymap), rowPins, colPins, numRows, numCols);
 
 byte second, minute, hour;
