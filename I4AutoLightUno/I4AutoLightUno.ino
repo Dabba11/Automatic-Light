@@ -28,7 +28,7 @@
 #include <OnewireKeypad.h>
 #include "Wire.h"
 /*Initialize for the display*/
-U8G2_ST7920_128X64_1_SW_SPI u8g2(U8G2_R0, 2, 4, 6); //u8g2(U8G2_R0, En, Rw, Rs) (2, 4, 6);
+U8G2_ST7920_128X64_1_SW_SPI u8g2(U8G2_R0, 3, 5, 2); //u8g2(Screen Orientation, En, Rw, Rs) (2, 4, 6);
 //MicroController mapping, u8g2(U8G2_R0, 3, 5, 2)
 
 
