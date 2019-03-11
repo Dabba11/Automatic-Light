@@ -78,7 +78,7 @@ unsigned int actual, strength;
 
 void setup(void) {
     delay(2000);
-    Serial.begin(9600);
+    //Serial.begin(9600);
     Wire.begin();
     mySerial.begin(9600);
     u8g2.begin();                                  /*Initialize u8g2*/
@@ -87,13 +87,13 @@ void setup(void) {
     pinMode(buzzerPin,OUTPUT);
     pinMode(gsmReset,OUTPUT);
     digitalWrite(gsmReset, LOW);
-    Serial.println("Starting");
+    //Serial.println("Starting");
     if(checkPower()){
         //mySerial.write("AT+CSCLK=0\r");
        // mySerial.write("AT+CLIP=1\r\n");
         checkWith("AT+CLIP=1\r\n","OK\r\n",200,DATA);
     }
-    Serial.println(F("GSM start successful"));
+    //Serial.println(F("GSM start successful"));
     delay(1000);
     digitalWrite(lcdVcc, HIGH);
     delay(2500);
@@ -109,7 +109,7 @@ void setup(void) {
         u8g2.setCursor(37, 40);
         u8g2.print(F("LOADING..."));
     }while(u8g2.nextPage());
-    Serial.println(F("intro page paxi"));
+    //Serial.println(F("intro page paxi"));
     KP2.SetKeypadVoltage(5.0);
 //    KP2.setHoldTime(80000);
 //    KP2.setDebounceTime(200);
@@ -142,8 +142,8 @@ void setup(void) {
     }
      if(checkWith("AT+CUSD=1,\"*400#\"\r\n","Rs ",15000,CMD)){  /*Balance update*/
         actual = balance;
-        Serial.println(F("balance: "));
-        Serial.print(balance);
+        //Serial.println(F("balance: "));
+        //Serial.print(balance);
         mySerialFlush();
     }
     readDS3231time(&second, &minute, &hour);  /* obtain the real-time from RTC*/
@@ -152,7 +152,7 @@ void setup(void) {
         firstpagedisplay();
         toShowSchedule();
     }while(u8g2.nextPage());
-    rtcdelaytime = (millis()/1000)+60;
+    rtcdelaytime = (millis()/60000)+1;
     
     mySerialFlush();
     wdt_disable();
@@ -161,15 +161,15 @@ void setup(void) {
 //void(* resetFunc) (void) = 0; //declare reset function at address 0
 bool firstOff = 0;
 void loop(void) {
-    Serial.println(F("void ko suru ma ho hai"));
+    //Serial.println(F("void ko suru ma ho hai"));
     delay(2000); 
     //--------------- switch section -----------//
    
     //-------------------------------------------------- 1 minute section-----------
-    timeThen = millis()/1000;
-    if((timeThen - rtcdelaytime) >= 60){
-        Serial.println(timeThen - rtcdelaytime);
-        rtcdelaytime = millis()/1000;
+    timeThen = millis()/60000;
+    if((timeThen - rtcdelaytime) >= 1){
+        //Serial.println(timeThen - rtcdelaytime);
+        rtcdelaytime = millis()/60000;
         
         if(checkWith("AT+CSQ\r\n","+CSQ: ",2000,CMD)){  /*Signal Strength extraction*/
             strength = balance;
@@ -178,8 +178,8 @@ void loop(void) {
         }
          if(checkWith("AT+CUSD=1,\"*400#\"\r\n","Rs ",15000,CMD)){  /*Balance update*/
             actual = balance;
-            Serial.println(F("balance: "));
-            Serial.print(balance);
+            //Serial.println(F("balance: "));
+            //Serial.print(balance);
             mySerialFlush();
         }
         readDS3231time(&second, &minute, &hour);  /* obtain the real-time only at each 60 secs time interval*/
@@ -210,7 +210,7 @@ void loop(void) {
             if(flag3 == 0){
                 digitalWrite(relayPin,LOW);
                 if (firstOff == 0){
-                    Serial.println(F("Only once in loop"));
+                    //Serial.println(F("Only once in loop"));
                     sentbucket = 1;
                     firstOff = 1;
                 }
@@ -263,7 +263,7 @@ void loop(void) {
     
     //------------------------------------ 1 minute area ---------------
     
-    Serial.println(F("loop ma aba"));
+    //Serial.println(F("loop ma aba"));
     if(sentbucket == 1){
         sendSMS(clientNum);
         mySerialFlush();
@@ -271,31 +271,31 @@ void loop(void) {
     if(sentbucketcall == 1){
         sendSMS(sajalnum);
     }
-    Serial.println(F("sentbucket ko kaam sakkiyepaxi"));
+    //Serial.println(F("sentbucket ko kaam sakkiyepaxi"));
    
     while(mySerial.available()>0){
         //Serial.println("Inside my serial");
         char in_char = mySerial.read();
-        Serial.print(in_char);
+        //Serial.print(in_char);
         if (in_char == 'R'){
             delay(10);
             in_char = mySerial.read();
-            Serial.println(in_char);
+            //Serial.println(in_char);
             if(in_char == 'I'){
                 delay(10);
                 in_char = mySerial.read();
-                Serial.println(in_char);
+                //Serial.println(in_char);
                 if(in_char == 'N'){
                     delay(10);
                     in_char = mySerial.read();
-                    Serial.println(in_char);
+                    //Serial.println(in_char);
                     if(in_char == 'G'){
                         delay(10);
                         call = true;
-                        Serial.println(F("Inside RING"));
+                        //Serial.println(F("Inside RING"));
                         if(checkWith("","+CLIP: \"",100,CMD)){ 
-                            Serial.print(F("lah aaba pugyo haii")); 
-                            for(int i=0;i<10;i++){Serial.print(sajalnum[i]);}
+                            //Serial.print(F("lah aaba pugyo haii")); 
+                            //for(int i=0;i<10;i++){Serial.print(sajalnum[i]);}
                             mySerial.println("ATH");  /*Hanging up the call*/
                             mySerialFlush();
                             delay(5000);
@@ -311,7 +311,7 @@ void loop(void) {
         }
     }
  
-    Serial.println(F("hangup ko thau paxi"));
+    //Serial.println(F("hangup ko thau paxi"));
 
 
 
@@ -389,6 +389,7 @@ void loop(void) {
             u8g2.setCursor(6, 51);
             u8g2.print(F( "A - No"));
         }while(u8g2.nextPage());
+        timeThen = millis();
         do{
             valueloop = getButton();
             if (valueloop == 'A'){
@@ -521,12 +522,12 @@ void loop(void) {
               }
               if ((millis() - timeThen) >= 120000){
                   timeThen = millis();
-                  goto gotominute;
+                  goto exittime;
               }
           }while(valueup != 'D');
           
         //------MINUTE SETUP-------//
-        timeThen = millis();
+          timeThen = millis();
         gotominute:
           ctmp1=61;
 
@@ -623,7 +624,7 @@ void loop(void) {
               }
               if ((millis() - timeThen) >= 90000){
                   timeThen = millis();
-                  break;
+                  goto exittime;
               }                
           }while(valueup != 'D');
           //---AM\PM Change---//
@@ -706,7 +707,7 @@ void loop(void) {
               }
               if ((millis() - timeThen) >= 60000){
                   timeThen = millis();
-                  break;
+                  goto exittime;
               }
           }while(valueup != 'D');
           u8g2.clearDisplay();
@@ -734,7 +735,7 @@ void loop(void) {
           }while(valueloop != 'D');
           hour2 = hourtmp2;
           setDS3231time(00,minute2,hour2);   
-          exittime:
+        exittime:
           u8g2.clearDisplay();
           delay(3000);
             readDS3231time(&second, &minute, &hour);
@@ -743,7 +744,7 @@ void loop(void) {
              firstpagedisplay();
              toShowSchedule();
           }while(u8g2.nextPage());
-          rtcdelaytime = millis()/1000;
+          rtcdelaytime = millis()/60000;
       }
 
 }
@@ -779,7 +780,7 @@ byte bcdToDec(byte val){return( (val/16*10) + (val%16) );}
 
 void firstpagedisplay(){
     //Smart farm
-    Serial.println(F("in firstpage"));
+    //Serial.println(F("in firstpage"));
     u8g2.setCursor(2, 24);
     u8g2.print(F("dabba FARM"));
 
@@ -814,8 +815,8 @@ void firstpagedisplay(){
     u8g2.drawLine(0, 0, 3, 3);
     u8g2.drawLine(6, 0, 3, 3);
     u8g2.drawLine(3, 0, 3, 9);
-    Serial.println(F("Signal strength value"));
-    Serial.print(strength);
+    //Serial.println(F("Signal strength value"));
+    //Serial.print(strength);
     if(strength >= 0){
         u8g2.drawVLine(6, 8, 1);
         if(strength >= 9){
@@ -964,7 +965,7 @@ void readDS3231time(byte *second,byte *minute,byte *hour)
 
 char getButton(){
     //char keypressed = KP2.Getkey();
-    delay(300);
+    delay(500);
     if (char key = KP2.Getkey()){
       //if((keypressed != NO_KEY) &&(KP2.Key_State()== PRESSED)){
         return key;
@@ -1020,7 +1021,7 @@ void showSchedule(int arrays[], int len, int pxht){
     /*Showing Schedule*/
      if (arrays[0] == 0){
         u8g2.setCursor(16, pxht+1);
-        u8g2.print(F("NONE"));
+        u8g2.print(F("NOT SET"));
         u8g2.drawHLine(0, 37, 128);
     }
     for (i=0; i<len; i++){
@@ -1047,23 +1048,23 @@ bool sendSMS(char* num){
 
     String msgup = "FARM ALERT: Dear Customer, your farm light is "; /*47 length*/
     if(msgbucket == 1){
-        msgup += "ON \n AM: ";
+        msgup += "ON\nAM: ";
     }
     else{
-       msgup +="OFF \n AM: ";
+       msgup +="OFF\nAM: ";
     }
     byte s = 0;
     while(arrayam[s] != 0){
-        msgup += (String(arrayam[s]) + ", ");
+        msgup += (String(arrayam[s]) + ",");
         s++;
     }
-    msgup +="\n PM: ";
+    msgup +="\nPM: ";
     s = 0;
     while(arraypm[s] != 0){
-        msgup += (String(arraypm[s]) + ", ");
+        msgup += (String(arraypm[s]) + ",");
         s++;
     }
-    msgup += "\n TMP: ";
+    msgup += "\nTMP: ";
     byte t = getTemp();
     msgup = msgup + String(t)+"\'C";
 
@@ -1099,12 +1100,10 @@ bool sendSMS(char* num){
             previousIndex ++;
             balance = 0;
             sentbucket = 0;
-            return true;
         }
     }
-    
     delay(1000);
-    return false;
+    return true;
 }
 
 
@@ -1115,7 +1114,7 @@ bool checkWith(const char* cmd, const char* resp, unsigned int timeout, DataType
     unsigned int i;
     char c;
     int length1 = strlen(cmd);
-    Serial.println("inside checkWITH:   ");
+    //Serial.println("inside checkWITH:   ");
     //-------------------------------------- cmd send area ------------------------------
     if(strlen(cmd) != 0){
         for (i=0; i<length1; i++){
@@ -1137,7 +1136,7 @@ bool checkWith(const char* cmd, const char* resp, unsigned int timeout, DataType
         while(1){
             if(mySerial.available() > 0){
                 c = mySerial.read();
-                Serial.print(c);
+                //Serial.print(c);
                 prevChar = millis();
                 sum = (c == resp[sum]? sum+1: 0);
                 if(sum == len){
@@ -1178,12 +1177,12 @@ bool checkWith(const char* cmd, const char* resp, unsigned int timeout, DataType
 }
 
 bool checkPower(){
-    Serial.println("inside checkpower");
+    //Serial.println("inside checkpower");
     checkWith("AT\r\n","OK\r\n",500,DATA);
-    Serial.println("First check");
+    //Serial.println("First check");
     checkWith("AT\r\n","OK\r\n",500,DATA);
     if(!checkWith("AT\r\n","OK\r\n",500,DATA)){
-        Serial.println("inside there");
+        //Serial.println("inside there");
         digitalWrite(gsmReset,HIGH);
         delay(2000);
         digitalWrite(gsmReset,LOW);
@@ -1199,8 +1198,8 @@ void mySerialFlush(){
         mySerial.read();
     }
 }
-/*Data pin of temp sensor to tempPin, from tempPin put 10K resistor to 5Volt, other end of sensor to ground*/
-/*Also the 5 volt end should join across Vref as well*/
+/*Data pin of temp sensor to tempPin, from tempPin put 10K resistor to GND, other end of sensor to 5Volt*/
+/*Also the 5 volt end should join across Vref as well(Optional)*/
 int getTemp(void){
     float A = 1.009249522e-03, B = 2.378405444e-04, C = 2.019202697e-07;
     //Voltage Divider between 5Volt and sensor end
