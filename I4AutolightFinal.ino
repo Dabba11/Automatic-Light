@@ -26,7 +26,7 @@
 #include "Wire.h"
 #include <SoftwareSerial.h>
 /*Initialize for the display*/
-U8G2_ST7920_128X64_1_SW_SPI u8g2(U8G2_R0, 2, 4, 6); //u8g2(U8G2_R0, En, Rw, Rs) (2, 4, 6);
+U8G2_ST7920_128X64_1_SW_SPI u8g2(U8G2_R0, 3, 5, 2); //u8g2(U8G2_R0, En, Rw, Rs) (2, 4, 6);
 //MicroController mapping, u8g2(U8G2_R0, 3, 5, 2)
 /*The "1" in initialization means it reserves 128 bytes of buffer, "2" reserves 256 bytes and "F" uses 1024 bytes*/
 SoftwareSerial mySerial(9, 10);
