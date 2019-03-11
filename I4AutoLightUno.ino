@@ -162,8 +162,7 @@ void setup(void) {
 bool firstOff = 0;
 void loop(void) {
     //Serial.println(F("void ko suru ma ho hai"));
-    delay(2000); 
-    //--------------- switch section -----------//
+    delay(2000);
    
     //-------------------------------------------------- 1 minute section-----------
     timeThen = millis()/60000;
@@ -189,6 +188,7 @@ void loop(void) {
             toShowSchedule();
         }while(u8g2.nextPage());
 
+        //--------------- switch section -----------//
         byte flag3 = 0, flag4 = 0;
         if(hour <12){
             for(i=0; i<12; i++){
