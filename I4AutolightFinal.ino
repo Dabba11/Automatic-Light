@@ -26,7 +26,7 @@
 #include "Wire.h"
 #include <SoftwareSerial.h>
 /*Initialize for the display*/
-U8G2_ST7920_128X64_1_SW_SPI u8g2(U8G2_R0, 3, 5, 2); //u8g2(U8G2_R0, En, Rw, Rs) (2, 4, 6);
+U8G2_ST7920_128X64_1_SW_SPI u8g2(U8G2_R0, 3, 5, 2); //u8g2(U8G2_R0, En, Rw, Rs) (2, 4, 6); for mega
 //MicroController mapping, u8g2(U8G2_R0, 3, 5, 2)
 /*The "1" in initialization means it reserves 128 bytes of buffer, "2" reserves 256 bytes and "F" uses 1024 bytes*/
 SoftwareSerial mySerial(9, 10);
@@ -55,7 +55,7 @@ unsigned long timeThen;
 //const byte numCols   = 4;
 byte flag1=0, flag2=0;
 bool msgbucket = 0, sentbucket = 0, sentbucketcall = 0;
-char clientNum[10] = "9864424850";
+char clientNum[10] = "9846773552";
 byte i;
 bool checkBalanceTrue = false;
 unsigned long rtcdelaytime;
@@ -80,7 +80,6 @@ unsigned int actual, strength;
 void setup(void) {
     delay(5000);
     Wire.begin();
-    //Serial.begin(9600);
     mySerial.begin(9600);
     u8g2.begin();                                  /*Initialize u8g2*/
     pinMode(lcdVcc, OUTPUT);
@@ -109,7 +108,7 @@ void setup(void) {
         u8g2.setCursor(37, 40);
         u8g2.print(F("LOADING..."));
     }while(u8g2.nextPage());
-    KP2.SetKeypadVoltage(5.0);
+    KP2.SetKeypadVoltage(5.04);
 //    KP2.setHoldTime(80000);
 //    KP2.setDebounceTime(200);
 //    myKeypad.addEventListener(keypadEvent);
@@ -381,6 +380,7 @@ void loop(void) {
                 timeThen = millis();
                 goto exittime1;
             }
+            delay(200);
         }while(valueloop != 'D');
         updateEeprom(arrayam1,arraypm1); 
         copy(arrayam1,arrayam,len1);
@@ -490,13 +490,13 @@ void loop(void) {
               if((valueup == 'A') && (ctmp1 != 14)){ 
                   if(hour2 > 9){
                       ctmp1 -= 12;
-                      setpixels(ctmp1, 38, 13, 11);
+                      setpixels(ctmp1, 38, 13, 10);
                       u8g2.sendBuffer();
                       hour2 = 0;
                   }
                   else{
                       ctmp1 -= 6;
-                      setpixels(ctmp1, 38, 13, 11);
+                      setpixels(ctmp1, 38, 13, 10);
                       u8g2.sendBuffer();
                       hour2 = 0;
                       goto gotohour;
@@ -506,6 +506,7 @@ void loop(void) {
                   timeThen = millis();
                   goto exittime;
               }
+              delay(300);
           }while(valueup != 'D');
           
         //------MINUTE SETUP-------//
@@ -528,7 +529,8 @@ void loop(void) {
                       if ((millis() - timeThen) >= 90000){
                           timeThen = millis();
                           goto exittime;
-                      }   
+                      }
+                      delay(300);
                   }while(1);
               }
           /*since we cannot use clearBuffer() to erase > on hour side and rewrite on the minute side without erasing everything in that row, I used setpixels() function*/    
@@ -581,7 +583,8 @@ void loop(void) {
               if ((millis() - timeThen) >= 90000){
                   timeThen = millis();
                   goto exittime;
-              }                
+              }
+              delay(300);               
           }while(valueup != 'D');
           //---AM\PM Change---//
           timeThen = millis();
@@ -612,7 +615,6 @@ void loop(void) {
           if((valueup == '*')|| (valueup =='0')||(valueup == '#')){
               do{
                   valueup = getButton();
-                  
                   if (valueup == 'D'){
                       goto gotochange;
                   }
@@ -624,7 +626,8 @@ void loop(void) {
                   if ((millis() - timeThen) >= 90000){
                       timeThen = millis();
                       goto exittime;
-                  }   
+                  }  
+                  delay(300); 
               }while(1);
           }
           change = false;
@@ -665,6 +668,7 @@ void loop(void) {
                   timeThen = millis();
                   goto exittime;
               }
+              delay(300);
           }while(valueup != 'D');
           u8g2.clearDisplay();
           delay(3000);
@@ -687,6 +691,7 @@ void loop(void) {
                   timeThen = millis();
                   goto exittime;
               }
+              delay(300);
           }while(valueloop != 'D');
           hour2 = hourtmp2;
           setDS3231time(00,minute2,hour2);   
@@ -876,7 +881,8 @@ byte inputvalue(String display1, int arrayvalue[]){
         } 
         if(dtmp1 >= 12){
             break;
-        }    
+        }
+        delay(300);
     }while(value != 'D');
     return dtmp1;
 }
@@ -917,7 +923,7 @@ void readDS3231time(byte *second,byte *minute,byte *hour)
 
 char getButton(){
     //char keypressed = KP2.Getkey();
-    delay(500);
+    delay(300);
     if (char key = KP2.Getkey()){
         return key;
     } 
@@ -1029,7 +1035,7 @@ bool sendSMS(char* num){
     if(!checkWith("AT+CMGS=\"","",500,DATA)){
         return false;
     }
-    if(!checkWith("+9779864424850","",500,DATA)){
+    if(!checkWith("+9779846773552","",500,DATA)){
         return false;
     }  
     if(!checkWith("\"\r\n",">",500,DATA)){
