@@ -80,7 +80,7 @@ unsigned int actual, strength;
 void setup(void) {
     delay(5000);
     Wire.begin();
-    //mySerial.begin(9600);
+    mySerial.begin(9600);
     u8g2.begin();                                  /*Initialize u8g2*/
     pinMode(lcdVcc, OUTPUT);
     pinMode(relayPin,OUTPUT);
@@ -278,7 +278,7 @@ void loop(void) {
                         delay(10);
                         call = true;
                         if(checkWith("","+CLIP: \"",100,CMD)){ 
-                            //mySerial.println("ATH");  /*Hanging up the call*/
+                            mySerial.println("ATH");  /*Hanging up the call*/
                             mySerialFlush();
                             delay(5000);
                             if (!sendSMS(sajalnum)){
