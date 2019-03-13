@@ -34,7 +34,7 @@ SoftwareSerial mySerial(9, 10);
 #define DS3231_I2C_ADDRESS 0x68
 #define relayPin A1
 #define buzzerPin A3
-#define lcdVcc 5
+#define lcdVcc 4
 #define gsmReset 11
 #define tempPin A2
 enum DataType {
@@ -933,6 +933,7 @@ void readDS3231time(byte *second,byte *minute,byte *hour)
 
 char getButton(){
     //char keypressed = KP2.Getkey();
+    delay(100);
     if (char key = KP2.Getkey()){
         return key;
     } 
