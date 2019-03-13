@@ -35,7 +35,7 @@ SoftwareSerial mySerial(9, 10);
 #define relayPin A1
 #define buzzerPin A3
 #define lcdVcc 4
-#define gsmReset 11
+#define gsmReset 12
 #define tempPin A2
 enum DataType {
     CMD     = 0,
@@ -106,7 +106,7 @@ void setup(void) {
     u8g2.firstPage();
     do{
         u8g2.setCursor(0, 20);
-        u8g2.print(F("Powered By:  dabba"));
+        u8g2.print(F("Powered By: dabba"));
         u8g2.setCursor(37, 40);
         u8g2.print(F("LOADING..."));
     }while(u8g2.nextPage());
@@ -162,7 +162,7 @@ void loop(void) {
    
     timeThen = millis()/60000;
     if((timeThen - rtcdelaytime) >= 1){
-      Serial.print(F("inside loop"));
+        Serial.print(F("inside loop"));
         rtcdelaytime = millis()/60000;
         
         if(checkWith("AT+CSQ\r\n","+CSQ: ",2000,CMD)){  /*Signal Strength extraction*/
@@ -172,11 +172,11 @@ void loop(void) {
         }
 
         if(checkBalanceTrue == true){
-         if(checkWith("AT+CUSD=1,\"*400#\"\r\n","Rs ",15000,CMD)){  /*Balance update*/
-            actual = balance;
-            mySerialFlush();
-            checkBalanceTrue = false;
-         }
+           if(checkWith("AT+CUSD=1,\"*400#\"\r\n","Rs ",15000,CMD)){  /*Balance update*/
+              actual = balance;
+              mySerialFlush();
+              checkBalanceTrue = false;
+           }
         }
         readDS3231time(&second, &minute, &hour);  /* obtain the real-time only at each 60 secs time interval*/
         u8g2.firstPage();
@@ -209,7 +209,7 @@ void loop(void) {
                     sentbucket = 1;
                     firstOff = 1;
                 }
-                if(flag1 = 1){
+                if(flag1 == 1){
                     digitalWrite(buzzerPin,HIGH);
                     msgbucket = 0;
                     sentbucket = 1;
@@ -265,7 +265,7 @@ void loop(void) {
     //------------------------------------ 1 minute area ---------------
     
    if(Serial.available()>0){
-    mySerial.write(Serial.read());
+       mySerial.write(Serial.read());
    }
     while(mySerial.available()>0){
         char in_char = mySerial.read();
@@ -1064,16 +1064,15 @@ bool sendSMS(char* num){
     if(checkWith("", "+CMGS: ", 5000, CMD)){
         if (notinitialized){
             previousIndex = balance - 1;
-             
         }
         if (balance == (previousIndex + 1)){
             previousIndex ++;
             notinitialized = false;
             balance = 0;
             sentbucket = 0;
+            checkBalanceTrue = true;
         }
     }
-    checkBalanceTrue = true;
     delay(1000);
     return true;
 }
