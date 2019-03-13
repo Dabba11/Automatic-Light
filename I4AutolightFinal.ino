@@ -80,7 +80,7 @@ unsigned int actual, strength;
 void setup(void) {
     delay(5000);
     Wire.begin();
-    mySerial.begin(9600);
+    //mySerial.begin(9600);
     u8g2.begin();                                  /*Initialize u8g2*/
     pinMode(lcdVcc, OUTPUT);
     pinMode(relayPin,OUTPUT);
@@ -278,7 +278,7 @@ void loop(void) {
                         delay(10);
                         call = true;
                         if(checkWith("","+CLIP: \"",100,CMD)){ 
-                            mySerial.println("ATH");  /*Hanging up the call*/
+                            //mySerial.println("ATH");  /*Hanging up the call*/
                             mySerialFlush();
                             delay(5000);
                             if (!sendSMS(sajalnum)){
@@ -366,10 +366,12 @@ void loop(void) {
         do{
             u8g2.setCursor(10, 21);
             u8g2.print(F("SAVE SETTING?"));
-            u8g2.setCursor(4, 37);
-            u8g2.print(F( "D - Yes"));
+            u8g2.drawLine(4, 33, 7, 35);
+            u8g2.drawLine(7, 35, 11, 28);
+            u8g2.setCursor(11, 37);
+            u8g2.print(F( " - Yes"));
             u8g2.setCursor(6, 51);
-            u8g2.print(F( "A - No"));
+            u8g2.print(F( "X - No"));
         }while(u8g2.nextPage());
         do{
             valueloop = getButton();
@@ -418,8 +420,10 @@ void loop(void) {
             u8g2.drawHLine(0, 37, 128);
             u8g2.drawHLine(0, 25, 128);
             u8g2.drawHLine(0, 49, 128);
-            u8g2.setCursor(1, 66);
-            u8g2.print(F( "D= Next, A= Delete"));
+            u8g2.drawLine(1, 62, 3, 64);
+            u8g2.drawLine(3, 64, 7, 57);
+            u8g2.setCursor(8, 66);
+            u8g2.print(F( "= Next, X= Delete"));
         }while(u8g2.nextPage());
         /*No clearDisplay() or firstPage()/nextPage() at all cost after this until time is completely set*/
         gotohour:
@@ -506,7 +510,7 @@ void loop(void) {
                   timeThen = millis();
                   goto exittime;
               }
-              delay(300);
+              delay(600);
           }while(valueup != 'D');
           
         //------MINUTE SETUP-------//
@@ -530,7 +534,7 @@ void loop(void) {
                           timeThen = millis();
                           goto exittime;
                       }
-                      delay(300);
+                      delay(600);
                   }while(1);
               }
           /*since we cannot use clearBuffer() to erase > on hour side and rewrite on the minute side without erasing everything in that row, I used setpixels() function*/    
@@ -584,7 +588,7 @@ void loop(void) {
                   timeThen = millis();
                   goto exittime;
               }
-              delay(300);               
+              delay(600);               
           }while(valueup != 'D');
           //---AM\PM Change---//
           timeThen = millis();
@@ -597,8 +601,10 @@ void loop(void) {
           /*to rewrite the instructions correctly for AM/PM change clearBuffer() used, but have to rewrite the hour and minute already setup*/
           u8g2.clearBuffer();
           u8g2.setBufferCurrTileRow(0);
-          u8g2.setCursor(1, 10);
-          u8g2.print(F( "C= Change,D= Done"));
+          u8g2.drawLine(1, 6, 3, 8);
+          u8g2.drawLine(3, 8, 7, 1); 
+          u8g2.setCursor(8, 10);
+          u8g2.print(F( "= Done, X= Change"));
           u8g2.setBufferCurrTileRow(7);
           u8g2.sendBuffer();
           u8g2.clearBuffer(); /*so that C= change part donot appear in time setting tile (Sequence is important!!!!)*/
@@ -627,14 +633,14 @@ void loop(void) {
                       timeThen = millis();
                       goto exittime;
                   }  
-                  delay(300); 
+                  delay(600); 
               }while(1);
           }
           change = false;
           
           do{
               valueup = getButton();
-              if(valueup == 'C'){
+              if(valueup == 'A'){
                   if(btmp1 == true){
                       u8g2.setBufferCurrTileRow(0);
                       setpixels(96, 0, 32, 10);
@@ -668,7 +674,7 @@ void loop(void) {
                   timeThen = millis();
                   goto exittime;
               }
-              delay(300);
+              delay(600);
           }while(valueup != 'D');
           u8g2.clearDisplay();
           delay(3000);
@@ -676,8 +682,10 @@ void loop(void) {
           do{
           u8g2.setCursor(10, 21);
             u8g2.print(F("SAVE SETTING?"));
-            u8g2.setCursor(4, 37);
-            u8g2.print(F("D - Yes"));
+            u8g2.drawLine(4, 33, 7, 35);
+            u8g2.drawLine(7, 35, 11, 28);
+            u8g2.setCursor(11, 37);
+            u8g2.print(F(" - Yes"));
             u8g2.setCursor(6, 51);
             u8g2.print(F( "A - No"));
           }while(u8g2.nextPage());
@@ -691,7 +699,7 @@ void loop(void) {
                   timeThen = millis();
                   goto exittime;
               }
-              delay(300);
+              delay(600);
           }while(valueloop != 'D');
           hour2 = hourtmp2;
           setDS3231time(00,minute2,hour2);   
@@ -811,8 +819,10 @@ byte inputvalue(String display1, int arrayvalue[]){
     u8g2.sendBuffer();
     u8g2.setBufferCurrTileRow(0);
     u8g2.clearBuffer();
-    u8g2.setCursor(1, 10);
-    u8g2.print(F("D = OK, A = delete"));
+    u8g2.drawLine(1, 6, 3, 8);
+    u8g2.drawLine(3, 8, 7, 1); 
+    u8g2.setCursor(8, 10);
+    u8g2.print(F(" = OK, X = delete"));
     u8g2.setBufferCurrTileRow(7);
     u8g2.sendBuffer();
     u8g2.clearBuffer();
@@ -882,7 +892,7 @@ byte inputvalue(String display1, int arrayvalue[]){
         if(dtmp1 >= 12){
             break;
         }
-        delay(300);
+        delay(600);
     }while(value != 'D');
     return dtmp1;
 }
@@ -923,7 +933,6 @@ void readDS3231time(byte *second,byte *minute,byte *hour)
 
 char getButton(){
     //char keypressed = KP2.Getkey();
-    delay(300);
     if (char key = KP2.Getkey()){
         return key;
     } 
