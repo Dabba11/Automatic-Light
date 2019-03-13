@@ -11,9 +11,6 @@
 //19 = Backlight == Anode (one resistor end) == 220ohm R == 5V
 //20 = Backlight == Cathode (other resistor end) == GND
 //Contrast Pot not required, built in pot for 12864B V2.0
-//u8g2lib for display
-//Custom Keypad library - OnewireKeypad
-
 #include <Arduino.h>
 #include <U8g2lib.h>
 
@@ -23,28 +20,45 @@
 #ifdef U8X8_HAVE_HW_I2C
 #include <Wire.h>
 #endif
+#include <avr/wdt.h>
 #include <EEPROM.h>
-
 #include <OnewireKeypad.h>
 #include "Wire.h"
+#include <SoftwareSerial.h>
 /*Initialize for the display*/
-U8G2_ST7920_128X64_1_SW_SPI u8g2(U8G2_R0, 3, 5, 2); //u8g2(Screen Orientation, En, Rw, Rs) (2, 4, 6);
+U8G2_ST7920_128X64_1_SW_SPI u8g2(U8G2_R0, 3, 5, 2); //u8g2(U8G2_R0, En, Rw, Rs) (2, 4, 6); for mega
 //MicroController mapping, u8g2(U8G2_R0, 3, 5, 2)
-
+/*The "1" in initialization means it reserves 128 bytes of buffer, "2" reserves 256 bytes and "F" uses 1024 bytes*/
+SoftwareSerial mySerial(9, 10);
 
 #define DS3231_I2C_ADDRESS 0x68
-#define relayPin A4
+#define relayPin A1
 #define buzzerPin A3
-
-int flag99 = 0;
+#define lcdVcc 4
+#define gsmReset 11
+#define tempPin A2
+enum DataType {
+    CMD     = 0,
+    DATA    = 1,
+    CALL = 2
+};
+bool call;
+char sajalnum[10];
+bool initialized = false;
+unsigned int balance;
+bool notinitialized = true;
+unsigned int previousIndex = 0;
 bool change;
 unsigned long timeThen;
-unsigned long timeNow;
-const byte numRows   = 4;
-const byte numCols   = 4;
-byte flag1=0,flag2=0;
+//unsigned long timeNow;
+//const byte numRows   = 4;
+//const byte numCols   = 4;
+byte flag1=0, flag2=0;
+bool msgbucket = 0, sentbucket = 0, sentbucketcall = 0;
+char clientNum[10] = "9846773552";
 byte i;
-int rtcdelaytime;
+bool checkBalanceTrue = false;
+unsigned long rtcdelaytime;
 int arrayam[12] = {0,0,0,0,0,0,0,0,0,0,0,0};
 int arraypm[12] = {0,0,0,0,0,0,0,0,0,0,0,0};
 int arrayam1[12] = {0,0,0,0,0,0,0,0,0,0,0,0};
@@ -53,145 +67,251 @@ char KEYS[]= {
   0, '1', '4', '7', '*',
      '2', '3', 'A', '5',
      '6', 'B', '8', '9',
-     '0', 'C', '#', 'D'};
+     '0', 'C', '#', 'D' };
 
 //byte rowPins[numRows] = {39,41,43,45}; //Rows 0 to 3
 //byte colPins[numCols]= {31,33,35,37}; //Columns 0 to 3
-OnewireKeypad <Print, 16 > KP2(Serial, KEYS, 4, 4, A0, 4700, 1000 ); /*The keypad's data pin is A0 (for uC its pin 23) by default, changing this pin in sketch has no change in behaviour of keypad*/
+OnewireKeypad <Print, 16 > KP2(Serial, KEYS, 4, 4, A0, 4700, 1000 );
 //Keypad myKeypad= Keypad(makeKeymap(keymap), rowPins, colPins, numRows, numCols);
 
 byte second, minute, hour;
-
-
+unsigned int actual, strength;
 
 void setup(void) {
-    pinMode(4, OUTPUT);
+    delay(5000);
+    Wire.begin();
+    mySerial.begin(9600);
+    Serial.begin(9600);
+    u8g2.begin();                                  /*Initialize u8g2*/
+    pinMode(lcdVcc, OUTPUT);
     pinMode(relayPin,OUTPUT);
     pinMode(buzzerPin,OUTPUT);
-    Wire.begin();
-    digitalWrite(4, HIGH);
-    u8g2.begin();                                             /*Initialize u8g2*/
-    u8g2.setFontPosBottom();                                  /*It is (bottom - 2) by default!! Set the cursor at the bottom left of any character*/
-    KP2.SetKeypadVoltage(5.0);
+    pinMode(gsmReset,OUTPUT);
+    digitalWrite(gsmReset, LOW);
+    if(checkPower()){
+      Serial.println(F("Check power"));
+        mySerial.write("AT+CSCLK=2\r");
+        delay(500);
+        mySerial.write("ATE0\r");
+        checkWith("AT+CLIP=1\r\n","OK\r\n",200,DATA);
+    }
+    delay(1000);
+    digitalWrite(lcdVcc, HIGH);
+    delay(2500);
+        Serial.println(F("outside checkpwr inside setup"));                                 
+    u8g2.setFontPosBottom();                            /*It is (bottom - 2) by default!! Set the cursor at the bottom left of any character*/
+    /*Single font for all the displayed characters*/
+    u8g2.setFont(u8g2_font_bitcasual_tr);
+    /*Intro Screen*/
+    u8g2.firstPage();
+    do{
+        u8g2.setCursor(0, 20);
+        u8g2.print(F("Powered By:  dabba"));
+        u8g2.setCursor(37, 40);
+        u8g2.print(F("LOADING..."));
+    }while(u8g2.nextPage());
+    KP2.SetKeypadVoltage(5.04);
 //    KP2.setHoldTime(80000);
 //    KP2.setDebounceTime(200);
 //    myKeypad.addEventListener(keypadEvent);
-    u8g2.clearDisplay(); 
     /*  NOTE :::: u8g2.sendBuffer() should always be called before a delay is applied or else ONLY buffer will be written with delay, display will be all at once*/
-    delay(3500);
     
-    /*Single font for all the displayed characters*/
-    u8g2.setFont(u8g2_font_bitcasual_tr);
-    
-    /*Intro Screen*/
-    do{
-    u8g2.drawStr(37, 40, "LOADING...");
-    }while(u8g2.nextPage());
-    digitalWrite(relayPin,LOW);
     delay(3000);
-
+    digitalWrite(relayPin,LOW);
     u8g2.clearDisplay();
-
     byte firstdigit  = EEPROM.read(1);
     byte seconddigit = EEPROM.read(2);
     byte j =0;
-    for(i = 3;i <firstdigit+3; i++){
-        arrayam[i-3] = EEPROM.read(i);           
+    if((firstdigit != 0) &&(seconddigit != 0)){
+        for(i = 3;i <firstdigit+3; i++){
+            arrayam[i-3] = EEPROM.read(i);           
+        }
+        while(j < seconddigit){
+            arraypm[j] = EEPROM.read(i);
+            j++; i++;                 
+        }
     }
-    while(j < seconddigit){
-        arraypm[j] = EEPROM.read(i);
-        j++; i++;                 
-    }
-    
-    delay(2000);
     digitalWrite(buzzerPin,HIGH);
-    delay(1500);
+    delay(2000);
     digitalWrite(buzzerPin,LOW);
-    rtcdelaytime = millis();
-}
-
-void(* resetFunc) (void) = 0; //declare reset function at address 0
-
-void loop(void) {
-    /*firstpage()/nextpage() taes less progmem than using setCurrTileRow() for a large number of instructions*/
-    /*firstPage() automatically clears the page buffer and the screen at the beginning of each loop (or anytime it is called!!)*/
+    
+    if(checkWith("AT+CSQ\r\n","+CSQ: ",2000,CMD)){  /*Signal Strength extraction*/
+        strength = balance;
+        delay(1000);
+        mySerialFlush();
+    }
+    readDS3231time(&second, &minute, &hour);  /* obtain the real-time from RTC*/
     u8g2.firstPage();
     do{
         firstpagedisplay();
-        displaytime();
-        tower();
         toShowSchedule();
     }while(u8g2.nextPage());
+    rtcdelaytime = (millis()/60000)+1;
     
-    timeThen = millis();
-    if((millis() - rtcdelaytime) >= 60000){
-        displaytime(); // display the real-time clock data on the Serial Monitor,
-        rtcdelaytime = millis();
-    }
-    delay(500); 
-    
-    //--------------- switch section -----------//
-    byte flag3 = 0, flag4 = 0;
-    if(hour <12){
-        for(i=0; i<12; i++){
-            if(((arrayam[i] == hour) && (arrayam[i] !=0)) || ((12-arrayam[i] == hour) && (arrayam[i] == 12))){
-                digitalWrite(relayPin,HIGH);
-                delay(1000);
-                flag3 = 1;
-                if(flag1 == 0){
-                    digitalWrite(buzzerPin,HIGH);
-                    //turning on SendMessage();
-                    digitalWrite(buzzerPin,LOW);
-                    delay(2000);
-                    flag1=1;
-                    delay(2000);
-                }
-            }
-        }
-        if(flag3 == 0){
-            digitalWrite(relayPin,LOW);
-            if(flag1 = 1){
-                digitalWrite(buzzerPin,HIGH);
-                //turning off message
-                flag1 = 0;
-                digitalWrite(buzzerPin,LOW);
-                delay(2000);
-            }
-        }
-    }
-    if(hour >11){
-        for(i=0; i<12; i++){
-            if((((arraypm[i] +12 == hour) || (arraypm[i] == hour))) &&(arraypm[i] !=0)){
-                digitalWrite(relayPin,HIGH);
-                delay(2000);
-                flag4 = 1;
-                if(flag2 == 0){
-                    digitalWrite(buzzerPin,HIGH);
-                    //turning on SendMessage();
-                    digitalWrite(buzzerPin,LOW);
-                    delay(2000);
-                    flag2=1;
-                }
-            }
-        }
-        if(flag4 == 0){
-            digitalWrite(relayPin,LOW);
-            if (flag2 == 1){
-                digitalWrite(buzzerPin,HIGH);
-                //turning off message
-                flag2 = 0;
-                digitalWrite(buzzerPin,LOW);
-                delay(2000);
-            }
-        }
-    }
+    mySerialFlush();
+    wdt_disable();
+}
 
+//void(* resetFunc) (void) = 0; //declare reset function at address 0
+bool firstOff = 0;
+
+void loop(void) {
+    //--------------- switch section -----------//
+   
+    //-------------------------------------------------- 1 minute section-----------
+   
+    timeThen = millis()/60000;
+    if((timeThen - rtcdelaytime) >= 1){
+      Serial.print(F("inside loop"));
+        rtcdelaytime = millis()/60000;
+        
+        if(checkWith("AT+CSQ\r\n","+CSQ: ",2000,CMD)){  /*Signal Strength extraction*/
+            strength = balance;
+            delay(1000);
+            mySerialFlush();
+        }
+
+        if(checkBalanceTrue == true){
+         if(checkWith("AT+CUSD=1,\"*400#\"\r\n","Rs ",15000,CMD)){  /*Balance update*/
+            actual = balance;
+            mySerialFlush();
+            checkBalanceTrue = false;
+         }
+        }
+        readDS3231time(&second, &minute, &hour);  /* obtain the real-time only at each 60 secs time interval*/
+        u8g2.firstPage();
+        do{
+            firstpagedisplay();
+            toShowSchedule();
+        }while(u8g2.nextPage());
+
+        byte flag3 = 0, flag4 = 0;
+        if(hour <12){
+            for(i=0; i<12; i++){
+                if(((arrayam[i] == hour) && (arrayam[i] !=0)) || ((12-arrayam[i] == hour) && (arrayam[i] == 12))){
+                    digitalWrite(relayPin,HIGH);
+                    delay(1000);
+                    flag3 = 1;
+                    if(flag1 == 0){
+                        digitalWrite(buzzerPin,HIGH);
+                        msgbucket = 1;
+                        sentbucket = 1;
+                        delay(1500);
+                        digitalWrite(buzzerPin,LOW);
+                        delay(1000);
+                        flag1=1;
+                    }
+                }
+            }
+            if(flag3 == 0){
+                digitalWrite(relayPin,LOW);
+                if (firstOff == 0){
+                    sentbucket = 1;
+                    firstOff = 1;
+                }
+                if(flag1 = 1){
+                    digitalWrite(buzzerPin,HIGH);
+                    msgbucket = 0;
+                    sentbucket = 1;
+                    delay(1500);
+                    flag1 = 0;
+                    digitalWrite(buzzerPin,LOW);
+                    delay(1000);
+                }
+            }
+        }
+        if(hour >11){
+            for(i=0; i<12; i++){
+                if((((arraypm[i] +12 == hour) || (arraypm[i] == hour))) &&(arraypm[i] !=0)){
+                    digitalWrite(relayPin,HIGH);
+                    delay(2000);
+                    flag4 = 1;
+                    if(flag2 == 0){
+                        digitalWrite(buzzerPin,HIGH);
+                        msgbucket = 1;
+                        sentbucket = 1;
+                        delay(2000);
+                        digitalWrite(buzzerPin,LOW);
+                        flag2=1;
+                        delay(2000);
+                    }
+                }
+            }
+            if(flag4 == 0){
+                digitalWrite(relayPin,LOW);
+                if (firstOff == 0){
+                    sentbucket = 1;
+                    firstOff = 1;
+                }
+                if (flag2 == 1){
+                    digitalWrite(buzzerPin,HIGH);
+                    msgbucket = 0;
+                    sentbucket = 1;
+                    flag2 = 0;
+                    digitalWrite(buzzerPin,LOW);
+                    delay(2000);
+                }
+            }
+        }
+        if(sentbucket == 1){
+            sendSMS(clientNum);
+            mySerialFlush();
+        }
+        if(sentbucketcall == 1){
+            sendSMS(sajalnum);
+        }
+    }
+    
+    //------------------------------------ 1 minute area ---------------
+    
+   if(Serial.available()>0){
+    mySerial.write(Serial.read());
+   }
+    while(mySerial.available()>0){
+        char in_char = mySerial.read();
+        if (in_char == 'R'){
+            delay(10);
+            in_char = mySerial.read();
+            if(in_char == 'I'){
+                delay(10);
+                in_char = mySerial.read();
+                if(in_char == 'N'){
+                    delay(10);
+                    in_char = mySerial.read();
+                    if(in_char == 'G'){
+                        delay(10);
+                        call = true;
+                        if(checkWith("","+CLIP: \"",100,CMD)){ 
+                            Serial.println(F("RINGING"));
+                            mySerial.println("ATH");  /*Hanging up the call*/
+                            mySerialFlush();
+                            delay(5000);
+                            if (!sendSMS(sajalnum)){
+                                sentbucketcall = 1;
+                            }
+                            else{ sentbucketcall = 0; }
+                            call = false;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+ 
+ 
+
+
+
+    /*firstpage()/nextpage() taes less progmem than using setCurrTileRow() for a large number of instructions*/
+    /*firstPage() automatically clears the page buffer and the screen at the beginning of each loop (or anytime it is called!!)*/
+    
     byte len1;
     byte len2;
     byte k=12;
     byte j=0;
     char valueloop = getButton();
-    delay(500);
+    //delay(500);
     /*------------LIGHT SCHEDULE SETTING--------------*/  
     if(valueloop == 'C'){
         len1 = inputvalue("AM :", arrayam1);
@@ -204,9 +324,8 @@ void loop(void) {
         u8g2.firstPage();
         do{
             firstpagedisplay();
-            displaytime();
-            tower();
-            u8g2.drawStr(48, 39, "-AM-");
+            u8g2.setCursor(48, 39);
+            u8g2.print(F( "-AM-"));
         }while(u8g2.nextPage());
         delay(2000);
         /*until the AM schedule is fully shown, no firstpage()/nextpage() loop allowed or else all other part of display will be cleared by firstpage()*/
@@ -230,9 +349,8 @@ void loop(void) {
         u8g2.firstPage();
         do{
             firstpagedisplay();
-            displaytime();
-            tower();
-            u8g2.drawStr(48, 39, "-PM-");
+            u8g2.setCursor(48, 39);
+            u8g2.print(F( "-PM-"));
         }while(u8g2.nextPage());
         delay(2000);
         j = 0;
@@ -251,9 +369,14 @@ void loop(void) {
         delay(4000);
         u8g2.firstPage();
         do{
-            u8g2.drawStr(10, 21, "SAVE SETTING?");
-            u8g2.drawStr(4, 37, "D - Yes");
-            u8g2.drawStr(6, 51, "A - No");
+            u8g2.setCursor(10, 21);
+            u8g2.print(F("SAVE SETTING?"));
+            u8g2.drawLine(4, 33, 7, 35);
+            u8g2.drawLine(7, 35, 11, 28);
+            u8g2.setCursor(11, 37);
+            u8g2.print(F( " - Yes"));
+            u8g2.setCursor(6, 51);
+            u8g2.print(F( "X - No"));
         }while(u8g2.nextPage());
         do{
             valueloop = getButton();
@@ -264,18 +387,17 @@ void loop(void) {
                 timeThen = millis();
                 goto exittime1;
             }
+            delay(200);
         }while(valueloop != 'D');
         updateEeprom(arrayam1,arraypm1); 
         copy(arrayam1,arrayam,len1);
         copy(arraypm1,arraypm,len2);
         exittime1:
             u8g2.clearDisplay(); /*Because delay() cannot be invoked after firstPage() is called*/
-            delay(3000); 
+            delay(3000);
             u8g2.firstPage();
             do{
                 firstpagedisplay();
-                displaytime();
-                tower();
                 toShowSchedule();
             }while(u8g2.nextPage());
             delay(1000);
@@ -283,6 +405,7 @@ void loop(void) {
     
     /*-------------CLOCK SETTING-------------*/
     if(valueloop == 'B'){
+        
         u8g2.clearDisplay();
         char valueup;
         byte hour1, hour2;
@@ -290,30 +413,34 @@ void loop(void) {
         u8g2.firstPage();
         do{
             firstpagedisplay();
-            displaytime();
-            tower();
             setpixels(0, 27, 120, 1);
-            u8g2.drawStr(2, 37, "Hr");
+            u8g2.setCursor(2, 37);
+            u8g2.print(F( "Hr"));
             u8g2.drawVLine(35, 26, 23);
-            u8g2.drawStr(40, 37, "Min");
+            u8g2.setCursor(40, 37);
+            u8g2.print(F("Min"));
             u8g2.drawVLine(93, 26, 23);
-            u8g2.drawStr(95, 37, "A/PM");
+            u8g2.setCursor(95, 37);
+            u8g2.print(F("A/PM"));
             u8g2.drawHLine(0, 37, 128);
             u8g2.drawHLine(0, 25, 128);
             u8g2.drawHLine(0, 49, 128);
-            u8g2.drawStr(1, 66, "D= Next, A= Delete");
+            u8g2.drawLine(1, 62, 3, 64);
+            u8g2.drawLine(3, 64, 7, 57);
+            u8g2.setCursor(8, 66);
+            u8g2.print(F( "= Next, X= Delete"));
         }while(u8g2.nextPage());
         /*No clearDisplay() or firstPage()/nextPage() at all cost after this until time is completely set*/
         gotohour:
           u8g2.clearBuffer();
           u8g2.setBufferCurrTileRow(0);
-          u8g2.drawStr(4, 10, ">");
+          u8g2.setCursor(4, 10);
+          u8g2.print(F( ">"));
           u8g2.setBufferCurrTileRow(5);
           u8g2.sendBuffer();
           /*no clearBuffer() until the time has been set or else the > sign will be erased*/
           byte ctmp1 = 14;
           timeThen = millis();
-          
           //------HOUR SETUP------//
           do{
               valueup = getButton();
@@ -342,7 +469,8 @@ void loop(void) {
               if(ctmp1 < 20){
                   if(valueup == '*'){
                       u8g2.setBufferCurrTileRow(0);
-                      u8g2.drawStr(ctmp1, 10, "10");
+                      u8g2.setCursor(ctmp1, 10);
+                      u8g2.print(F( "10"));
                       u8g2.setBufferCurrTileRow(5);
                       u8g2.sendBuffer();
                       hour2 = 10;
@@ -350,7 +478,8 @@ void loop(void) {
                   }
                   if(valueup == '0'){
                     u8g2.setBufferCurrTileRow(0);
-                    u8g2.drawStr(ctmp1, 10, "11");
+                    u8g2.setCursor(ctmp1, 10);
+                    u8g2.print(F("11"));
                     u8g2.setBufferCurrTileRow(5);
                     u8g2.sendBuffer();
                       hour2 = 11;
@@ -358,7 +487,8 @@ void loop(void) {
                   }
                   if(valueup == '#'){
                       u8g2.setBufferCurrTileRow(0);
-                      u8g2.drawStr(ctmp1, 10, "12");
+                      u8g2.setCursor(ctmp1, 10);
+                      u8g2.print(F( "12"));
                       u8g2.setBufferCurrTileRow(5);
                       u8g2.sendBuffer();
                       hour2 = 12;
@@ -369,13 +499,13 @@ void loop(void) {
               if((valueup == 'A') && (ctmp1 != 14)){ 
                   if(hour2 > 9){
                       ctmp1 -= 12;
-                      setpixels(ctmp1, 38, 13, 11);
+                      setpixels(ctmp1, 38, 13, 10);
                       u8g2.sendBuffer();
                       hour2 = 0;
                   }
                   else{
                       ctmp1 -= 6;
-                      setpixels(ctmp1, 38, 13, 11);
+                      setpixels(ctmp1, 38, 13, 10);
                       u8g2.sendBuffer();
                       hour2 = 0;
                       goto gotohour;
@@ -383,8 +513,9 @@ void loop(void) {
               }
               if ((millis() - timeThen) >= 120000){
                   timeThen = millis();
-                  goto gotominute;
+                  goto exittime;
               }
+              delay(600);
           }while(valueup != 'D');
           
         //------MINUTE SETUP-------//
@@ -407,14 +538,16 @@ void loop(void) {
                       if ((millis() - timeThen) >= 90000){
                           timeThen = millis();
                           goto exittime;
-                      }   
+                      }
+                      delay(600);
                   }while(1);
               }
           /*since we cannot use clearBuffer() to erase > on hour side and rewrite on the minute side without erasing everything in that row, I used setpixels() function*/    
           setpixels(4, 38, 8, 10);
           u8g2.sendBuffer();
           u8g2.setBufferCurrTileRow(0);
-          u8g2.drawStr(51, 10, ">");
+          u8g2.setCursor(51, 10);
+          u8g2.print(F( ">"));
           u8g2.setBufferCurrTileRow(5);
           u8g2.sendBuffer();
           
@@ -441,32 +574,6 @@ void loop(void) {
                   }
                   ctmp1 += 7;
               }
-//              if(ctmp1 < 64){
-//                  if(valueup == '*'){
-//                      u8g2.setBufferCurrTileRow(0);
-//                      u8g2.drawStr(ctmp1, 10, "10");
-//                      u8g2.setBufferCurrTileRow(5);
-//                      u8g2.sendBuffer();
-//                      minute2 = 10;
-//                      goto check2;
-//                  }
-//                  if(valueup == '0'){
-//                      u8g2.setBufferCurrTileRow(0);
-//                      u8g2.drawStr(ctmp1, 10, "11");
-//                      u8g2.setBufferCurrTileRow(5);
-//                      u8g2.sendBuffer();
-//                      minute2 = 11;
-//                      goto check2;
-//                  }
-//                  if(valueup == '#'){
-//                      u8g2.setBufferCurrTileRow(0);
-//                      u8g2.drawStr(ctmp1, 10, "10");
-//                      u8g2.setBufferCurrTileRow(5);
-//                      u8g2.sendBuffer();
-//                      minute2 = 12;
-//                      goto check2;
-//                  }
-//              }
               if((valueup == 'A') &&(ctmp1 != 61)){
                   if(minute2 > 9){
                       ctmp1 -= 14;
@@ -484,10 +591,10 @@ void loop(void) {
               }
               if ((millis() - timeThen) >= 90000){
                   timeThen = millis();
-                  break;
-              }                
+                  goto exittime;
+              }
+              delay(600);               
           }while(valueup != 'D');
-
           //---AM\PM Change---//
           timeThen = millis();
         gotochange:
@@ -499,7 +606,10 @@ void loop(void) {
           /*to rewrite the instructions correctly for AM/PM change clearBuffer() used, but have to rewrite the hour and minute already setup*/
           u8g2.clearBuffer();
           u8g2.setBufferCurrTileRow(0);
-          u8g2.drawStr(1, 10, "C= Change,D= Done");
+          u8g2.drawLine(1, 6, 3, 8);
+          u8g2.drawLine(3, 8, 7, 1); 
+          u8g2.setCursor(8, 10);
+          u8g2.print(F( "= Done, X= Change"));
           u8g2.setBufferCurrTileRow(7);
           u8g2.sendBuffer();
           u8g2.clearBuffer(); /*so that C= change part donot appear in time setting tile (Sequence is important!!!!)*/
@@ -508,14 +618,14 @@ void loop(void) {
           u8g2.print(hour2);
           u8g2.setCursor(61, 10);
           u8g2.print(minute2);
-          u8g2.drawStr(96, 10, "> AM");
+          u8g2.setCursor(96, 10);
+          u8g2.print(F( "> AM"));
           u8g2.setBufferCurrTileRow(5);
           u8g2.sendBuffer();
           
           if((valueup == '*')|| (valueup =='0')||(valueup == '#')){
               do{
                   valueup = getButton();
-                  
                   if (valueup == 'D'){
                       goto gotochange;
                   }
@@ -527,18 +637,20 @@ void loop(void) {
                   if ((millis() - timeThen) >= 90000){
                       timeThen = millis();
                       goto exittime;
-                  }   
+                  }  
+                  delay(600); 
               }while(1);
           }
           change = false;
           
           do{
               valueup = getButton();
-              if(valueup == 'C'){
+              if(valueup == 'A'){
                   if(btmp1 == true){
                       u8g2.setBufferCurrTileRow(0);
                       setpixels(96, 0, 32, 10);
-                      u8g2.drawStr(96, 10, "> AM");
+                      u8g2.setCursor(96, 10);
+                      u8g2.print(F("> AM"));
                       u8g2.setBufferCurrTileRow(5);
                       u8g2.sendBuffer();
                       change = false;
@@ -546,7 +658,8 @@ void loop(void) {
                   if(btmp1 == false){
                       u8g2.setBufferCurrTileRow(0);
                       setpixels(96, 0, 31, 10);
-                      u8g2.drawStr(96, 10, "> PM");
+                      u8g2.setCursor(96, 10);
+                      u8g2.print(F("> PM"));
                       u8g2.setBufferCurrTileRow(5);
                       u8g2.sendBuffer();
                       if(hour2 != 12){
@@ -564,17 +677,22 @@ void loop(void) {
               }
               if ((millis() - timeThen) >= 60000){
                   timeThen = millis();
-                  break;
+                  goto exittime;
               }
+              delay(600);
           }while(valueup != 'D');
-
           u8g2.clearDisplay();
           delay(3000);
           u8g2.firstPage();
           do{
-          u8g2.drawStr(10, 21, "SAVE SETTING?");
-          u8g2.drawStr(4, 37, "D - Yes");
-          u8g2.drawStr(6, 51, "A - No");
+          u8g2.setCursor(10, 21);
+            u8g2.print(F("SAVE SETTING?"));
+            u8g2.drawLine(4, 33, 7, 35);
+            u8g2.drawLine(7, 35, 11, 28);
+            u8g2.setCursor(11, 37);
+            u8g2.print(F(" - Yes"));
+            u8g2.setCursor(6, 51);
+            u8g2.print(F( "A - No"));
           }while(u8g2.nextPage());
           
           do{
@@ -586,6 +704,7 @@ void loop(void) {
                   timeThen = millis();
                   goto exittime;
               }
+              delay(600);
           }while(valueloop != 'D');
           hour2 = hourtmp2;
           setDS3231time(00,minute2,hour2);   
@@ -596,12 +715,11 @@ void loop(void) {
           u8g2.firstPage();
           do{
              firstpagedisplay();
-             displaytime();
-             tower();
              toShowSchedule();
           }while(u8g2.nextPage());
+          rtcdelaytime = millis()/60000;
       }
-    delay(3000);
+
 }
 
 // Convert normal decimal numbers to binary coded decimal
@@ -634,31 +752,56 @@ byte bcdToDec(byte val){return( (val/16*10) + (val%16) );}
 //}
 
 void firstpagedisplay(){
-    unsigned int balance;
-    readDS3231time(&second, &minute, &hour);
     //Smart farm
-    u8g2.drawStr(21, 24, "dabba FARM");
-    u8g2.setCursor(78, 11);
-    u8g2.print("Rs. ");
-    u8g2.print(balance);
-    u8g2.drawHLine(0, 27, 128);
-}
+    u8g2.setCursor(2, 24);
+    u8g2.print(F("dabba FARM"));
 
-void displaytime(){
-    // retrieve data from DS3231
-    readDS3231time(&second, &minute, &hour);
+    /*Time display*/
     u8g2.setCursor(22, 11);
     if (hour < 10){
       u8g2.setCursor(29, 11);
     }
     setpixels(20, 0, 14, 10);
     u8g2.print(hour);
-    u8g2.print(" : ");
+    u8g2.print(F(" : "));
     setpixels(43, 0, 30, 10);
     if (minute < 10){
-      u8g2.print("0");
+      u8g2.print(F("0"));
     }
     u8g2.print(minute);
+
+    /*Balance Display*/
+    u8g2.setCursor(78, 11);
+    u8g2.print(F("Rs. "));
+    u8g2.print(actual);
+    u8g2.drawHLine(0, 27, 128);
+
+    /*Temperature Display*/
+    int temperat = getTemp();
+    u8g2.setCursor(100, 26);
+    u8g2.print(temperat);
+    u8g2.print(F(" °C"));
+    
+    /*Tower signal Display*/
+    u8g2.drawLine(0, 0, 6, 0);
+    u8g2.drawLine(0, 0, 3, 3);
+    u8g2.drawLine(6, 0, 3, 3);
+    u8g2.drawLine(3, 0, 3, 9);
+    if(strength >= 0){
+        u8g2.drawVLine(6, 8, 1);
+        if(strength >= 9){
+            u8g2.drawVLine(9, 6, 3);
+            if(strength >= 19){
+                u8g2.drawVLine(12, 4, 5);
+                if(strength >= 23){
+                    u8g2.drawVLine(15, 2, 7);
+                    if(strength >= 26){
+                        u8g2.drawVLine(18, 0, 9);
+                    }
+                }
+            }
+        }
+    }
 }
 
 byte inputvalue(String display1, int arrayvalue[]){
@@ -666,11 +809,12 @@ byte inputvalue(String display1, int arrayvalue[]){
     byte dtmp1 = 0;
     byte len;
     char value;
+    byte flag99 = 0;
     for(i = 0; i<4; i++){
-    u8g2.setBufferCurrTileRow(0);
-    setpixels(0, 0, 128, 10); //clearing space below SMART FARM
-    u8g2.setBufferCurrTileRow(4+i);
-    u8g2.sendBuffer();
+        u8g2.setBufferCurrTileRow(0);
+        setpixels(0, 0, 128, 10);             //clearing space below SMART FARM
+        u8g2.setBufferCurrTileRow(4+i);
+        u8g2.sendBuffer();
     }
     delay(1000);
     u8g2.setBufferCurrTileRow(0);
@@ -680,12 +824,16 @@ byte inputvalue(String display1, int arrayvalue[]){
     u8g2.sendBuffer();
     u8g2.setBufferCurrTileRow(0);
     u8g2.clearBuffer();
-    u8g2.drawStr(5, 10, "D = OK, A = delete");
+    u8g2.drawLine(1, 6, 3, 8);
+    u8g2.drawLine(3, 8, 7, 1); 
+    u8g2.setCursor(8, 10);
+    u8g2.print(F(" = OK, X = delete"));
     u8g2.setBufferCurrTileRow(7);
     u8g2.sendBuffer();
     u8g2.clearBuffer();
     u8g2.setBufferCurrTileRow(0);
-    u8g2.drawStr(0, 10, ">>");
+    u8g2.setCursor(0, 10);
+    u8g2.print(F( ">>"));
     u8g2.setBufferCurrTileRow(5);
     u8g2.sendBuffer();
     do{
@@ -710,7 +858,7 @@ byte inputvalue(String display1, int arrayvalue[]){
             arrayvalue[dtmp1] = 10;
             u8g2.setBufferCurrTileRow(0);
             u8g2.setCursor(ctmp1+1,10);
-            u8g2.print("10");
+            u8g2.print(F("10"));
             u8g2.setBufferCurrTileRow(5);
             u8g2.sendBuffer();
             ctmp1 += 15; dtmp1++;
@@ -719,7 +867,7 @@ byte inputvalue(String display1, int arrayvalue[]){
             arrayvalue[dtmp1] = 11;
             u8g2.setBufferCurrTileRow(0);
             u8g2.setCursor(ctmp1+1, 10);
-            u8g2.print(arrayvalue[dtmp1]);
+            u8g2.print(F("11"));
             u8g2.setBufferCurrTileRow(5);
             u8g2.sendBuffer();
             ctmp1 += 15; dtmp1++;
@@ -728,7 +876,7 @@ byte inputvalue(String display1, int arrayvalue[]){
             arrayvalue[dtmp1] = 12;
             u8g2.setBufferCurrTileRow(0);
             u8g2.setCursor(ctmp1+1, 10);
-            u8g2.print(arrayvalue[dtmp1]);
+            u8g2.print(F("12"));
             u8g2.setBufferCurrTileRow(5);
             u8g2.sendBuffer();
             ctmp1 += 15; dtmp1++;
@@ -748,7 +896,8 @@ byte inputvalue(String display1, int arrayvalue[]){
         } 
         if(dtmp1 >= 12){
             break;
-        }    
+        }
+        delay(600);
     }while(value != 'D');
     return dtmp1;
 }
@@ -768,22 +917,29 @@ void setDS3231time(byte second, byte minute, byte hour){
 
 void readDS3231time(byte *second,byte *minute,byte *hour)
 {
+    takeagain:
     Wire.beginTransmission(DS3231_I2C_ADDRESS);
     Wire.write(0); // set DS3231 register pointer to 00h
     Wire.endTransmission();
     Wire.requestFrom(DS3231_I2C_ADDRESS, 7);
     // request seven bytes of data from DS3231 starting from register 00h
     *second = bcdToDec(Wire.read() & 0x7f);
+    
     *minute = bcdToDec(Wire.read());
+//    if (minute != (1||2||3||4||5||6||7||8||9)){
+//      goto takeagain;
+//    }
     *hour = bcdToDec(Wire.read() & 0x3f);
+//     if (hour != (1||2||3||4||5||6||7||8||9)){
+//      goto takeagain;
+//    }
 }
 
 
 char getButton(){
     //char keypressed = KP2.Getkey();
-    delay(1251);
+    delay(100);
     if (char key = KP2.Getkey()){
-      //if((keypressed != NO_KEY) &&(KP2.Key_State()== PRESSED)){
         return key;
     } 
     return NO_KEY;
@@ -823,16 +979,22 @@ void setpixels(int a, int b, int c, int d){
 void toShowSchedule(){
     byte firstdigit  = EEPROM.read(1);
     byte seconddigit = EEPROM.read(2);
-    u8g2.drawStr(0, 49, "A:");
+    u8g2.setCursor(0, 49);
+    u8g2.print(F( "A:"));
     showSchedule(arrayam, firstdigit, 49);
-    u8g2.drawStr(0, 62, "P:");
+    u8g2.setCursor(0, 62);
+    u8g2.print(F( "P:"));
     showSchedule(arraypm, seconddigit, 62);
 }
 
 void showSchedule(int arrays[], int len, int pxht){
-    int j = 14;
-    //setpixels(14, pxht-11, 128, 12);
+    byte j = 12;
     /*Showing Schedule*/
+     if (arrays[0] == 0){
+        u8g2.setCursor(16, pxht+1);
+        u8g2.print(F("NONE"));
+        u8g2.drawHLine(0, 37, 128);
+    }
     for (i=0; i<len; i++){
         if(arrays[i] != 0){
             u8g2.setCursor(j, pxht+1);
@@ -849,15 +1011,171 @@ void showSchedule(int arrays[], int len, int pxht){
     }
 }
 
-void tower(){
-    //For tower signal
-    u8g2.drawLine(0, 0, 6, 0);
-    u8g2.drawLine(0, 0, 3, 3);
-    u8g2.drawLine(6, 0, 3, 3);
-    //if(GSM signal values){}
-    u8g2.drawLine(3, 0, 3, 9);
-    u8g2.drawLine(6, 6, 6, 9);
-    u8g2.drawLine(9, 4, 9, 9);
-    u8g2.drawLine(12, 2, 12, 9);
-    u8g2.drawLine(15, 0, 15, 9);
+bool sendSMS(char* num){
+    checkPower();
+    Serial.println(F("sendSMS after checkpower"));
+    char array1[14]="+977";
+    for(byte i=0; i<10; i++){
+        array1[i+4] = num[i];
+    }
+
+    String msgup = "FARM ALERT: Dear Customer, your farm light is "; /*47 length*/
+    if(msgbucket == 1){
+        msgup += "ON\nSchedule\nAM: ";
+    }
+    else{
+       msgup +="OFF\nSchedule\nAM: ";
+    }
+    byte s = 0;
+    while(arrayam[s] != 0){
+        msgup += (String(arrayam[s]) + ", ");
+        s++;
+    }
+    msgup +="\nPM: ";
+    s = 0;
+    while(arraypm[s] != 0){
+        msgup += (String(arraypm[s]) + ", ");
+        s++;
+    }
+    msgup += "\nTMP: ";
+    byte t = getTemp();
+    msgup += (String(t)+"\'C");
+
+    
+    if(!checkWith("AT\r\n","OK\r\n",500,DATA)){
+        return  false;
+    }
+    if(!checkWith("AT+CMGF=1\r\n","OK\r\n",500,DATA)){
+        return false;
+    }
+    if(!checkWith("AT+CMGS=\"","",500,DATA)){
+        return false;
+    }
+    if(!checkWith("+9779846773552","",500,DATA)){
+        return false;
+    }  
+    if(!checkWith("\"\r\n",">",500,DATA)){
+        return false;
+    }
+    mySerial.println(msgup);
+    delay(500);  
+    mySerial.println((char)26);
+   
+    if(checkWith("", "+CMGS: ", 5000, CMD)){
+        if (notinitialized){
+            previousIndex = balance - 1;
+             
+        }
+        if (balance == (previousIndex + 1)){
+            previousIndex ++;
+            notinitialized = false;
+            balance = 0;
+            sentbucket = 0;
+        }
+    }
+    checkBalanceTrue = true;
+    delay(1000);
+    return true;
+}
+
+
+
+bool checkWith(const char* cmd, const char* resp, unsigned int timeout, DataType type)
+{
+  Serial.println(F("Inside checkwith"));
+    unsigned int i;
+    char c;
+    int length1 = strlen(cmd);
+    //-------------------------------------- cmd send area ------------------------------
+    if(strlen(cmd) != 0){
+        for (i=0; i<length1; i++){
+            mySerial.write(cmd[i]);
+        }
+    }
+
+    //-------------------------------------------------cmd area--------------------------------
+
+    int len = strlen(resp);
+    int sum =0;
+    i=0;
+    //----------------------------------------------resp area -------------------------------
+    if(len != 0){
+        unsigned long timerStart, prevChar;
+        timerStart = millis();
+  
+        while(1){
+            if(mySerial.available() > 0){
+                c = mySerial.read();
+                Serial.print(c);
+                sum = (c == resp[sum]? sum+1: 0);
+                if(sum == len){
+                    // ---------------------------------------
+                    if(type == CMD){
+                        balance = 0;
+                        while(1){
+                            if(mySerial.available()>0){
+                                c = mySerial.read(); 
+                                if(( c == '.') || (c == ' ') || (c == ',')|| (c == '\"') ||(c =='\r')){
+                                    mySerialFlush();
+                                    delay(1000);
+                                    break;
+                                }
+                                else{
+                                    balance = balance * 10;
+                                }
+                                if(call){
+                                    sajalnum[i] = c;
+                                    i++;
+                                }
+                                balance = (balance + (c - '0'));              
+                            }  
+                        }                   
+                    }
+                    mySerialFlush();
+                    return true;
+                }
+            }
+
+            //-------------TIMEOUT AREA---------------------------
+            if((millis() - timerStart) > timeout){ 
+//                Serial.println(millis()-timerStart);
+//                Serial.print("TimeOut top");
+                return false;
+            }
+            // -----------------TIMEOUT AREA--------------------
+            
+        }
+    }
+    //----------------------------------------------end of resp area
+    mySerialFlush();
+    return true;
+}
+
+bool checkPower(){
+    checkWith("AT\r\n","OK\r\n",500,DATA);
+    checkWith("AT\r\n","OK\r\n",500,DATA);
+    if(!checkWith("AT\r\n","OK\r\n",500,DATA)){
+        digitalWrite(gsmReset,HIGH);
+        delay(2000);
+        digitalWrite(gsmReset,LOW);
+        delay(5000);
+        mySerialFlush();
+        return false;
+    }
+    return true;
+}
+
+void mySerialFlush(){
+    while(mySerial.available()>0){
+        mySerial.read();
+    }
+}
+/*Data pin of temp sensor to tempPin, from tempPin put 10K resistor to Ground, other end of sensor to 5Volt*/
+int getTemp(void){
+    float A = 1.009249522e-03, B = 2.378405444e-04, C = 2.019202697e-07;
+    //Voltage Divider between 5Volt and sensor end
+    float Rout = log(10000*(1024.0/analogRead(tempPin)-1));  //Resistance of thermistor in the specific voltage level
+    //The polarity of thermistor ends can be changed to change how voltage is measured across it
+    /*Mathematically, Resistance => Temperature done using Stein-Hart equation Below (in Kelvin) (-273 is done for Celcius value and +2.34 is an offset for approximate accuracy)*/
+    return (int((1.0/(A+B*Rout + C*Rout*Rout*Rout)) - 273.15 + 2.34));
 }
