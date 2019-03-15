@@ -42,6 +42,7 @@ enum DataType {
     DATA    = 1,
     CALL = 2
 };
+bool blcReturn = false;
 bool call;
 char sajalnum[10];
 bool initialized = false;
@@ -137,6 +138,8 @@ void setup(void) {
         strength = balance;
         delay(1000);
         mySerialFlush();
+
+        delay(6000);
     }
     readDS3231time(&second, &minute, &hour);  /* obtain the real-time from RTC*/
     u8g2.firstPage();
@@ -148,12 +151,14 @@ void setup(void) {
     
     mySerialFlush();
     wdt_disable();
+    digitalWrite(lcdVcc, LOW);
 }
 
 //void(* resetFunc) (void) = 0; //declare reset function at address 0
 bool firstOff = 0;
 
 void loop(void) {
+
     //--------------- switch section -----------//
    
     //-------------------------------------------------- 1 minute section-----------
@@ -170,8 +175,12 @@ void loop(void) {
         if(checkBalanceTrue == true){
          if(checkWith("AT+CUSD=1,\"*400#\"\r\n","Rs ",15000,CMD)){  /*Balance update*/
             actual = balance;
+            blcReturn = true;
             mySerialFlush();
             checkBalanceTrue = false;
+         }
+         else{
+          blcReturn = false;
          }
         }
         readDS3231time(&second, &minute, &hour);  /* obtain the real-time only at each 60 secs time interval*/
@@ -420,8 +429,8 @@ void loop(void) {
             u8g2.drawHLine(0, 37, 128);
             u8g2.drawHLine(0, 25, 128);
             u8g2.drawHLine(0, 49, 128);
-            u8g2.drawLine(1, 62, 3, 64);
-            u8g2.drawLine(3, 64, 7, 57);
+            u8g2.drawLine(1, 62, 3, 63);
+            u8g2.drawLine(3, 63, 7, 56);
             u8g2.setCursor(8, 66);
             u8g2.print(F( "= Next, X= Delete"));
         }while(u8g2.nextPage());
@@ -601,8 +610,8 @@ void loop(void) {
           /*to rewrite the instructions correctly for AM/PM change clearBuffer() used, but have to rewrite the hour and minute already setup*/
           u8g2.clearBuffer();
           u8g2.setBufferCurrTileRow(0);
-          u8g2.drawLine(1, 6, 3, 8);
-          u8g2.drawLine(3, 8, 7, 1); 
+          u8g2.drawLine(1, 5, 3, 7);
+          u8g2.drawLine(3, 7, 7, 0); 
           u8g2.setCursor(8, 10);
           u8g2.print(F( "= Done, X= Change"));
           u8g2.setBufferCurrTileRow(7);
@@ -768,7 +777,11 @@ void firstpagedisplay(){
     /*Balance Display*/
     u8g2.setCursor(78, 11);
     u8g2.print(F("Rs. "));
+   if (blcReturn == false){
+    u8g2.print("XX");
+   }else{
     u8g2.print(actual);
+   }
     u8g2.drawHLine(0, 27, 128);
 
     /*Temperature Display*/
@@ -782,7 +795,7 @@ void firstpagedisplay(){
     u8g2.drawLine(0, 0, 3, 3);
     u8g2.drawLine(6, 0, 3, 3);
     u8g2.drawLine(3, 0, 3, 9);
-    if(strength >= 0){
+    if(strength > 0){
         u8g2.drawVLine(6, 8, 1);
         if(strength >= 9){
             u8g2.drawVLine(9, 6, 3);
@@ -819,8 +832,8 @@ byte inputvalue(String display1, int arrayvalue[]){
     u8g2.sendBuffer();
     u8g2.setBufferCurrTileRow(0);
     u8g2.clearBuffer();
-    u8g2.drawLine(1, 6, 3, 8);
-    u8g2.drawLine(3, 8, 7, 1); 
+    u8g2.drawLine(1, 5, 3, 7);
+    u8g2.drawLine(3, 7, 7, 0); 
     u8g2.setCursor(8, 10);
     u8g2.print(F(" = OK, X = delete"));
     u8g2.setBufferCurrTileRow(7);
