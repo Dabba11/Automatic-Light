@@ -33,7 +33,7 @@ SoftwareSerial mySerial(9, 10);
 
 #define DS3231_I2C_ADDRESS 0x68
 #define relayPin A1
-#define buzzerPin A3
+#define buzzerPin 12
 #define lcdVcc 4
 #define gsmReset 11
 #define tempPin A2
