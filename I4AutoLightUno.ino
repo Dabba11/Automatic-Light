@@ -835,6 +835,7 @@ byte inputvalue(String display1, int arrayvalue[]){
     u8g2.setBufferCurrTileRow(5);
     u8g2.sendBuffer();
     delay(2000);
+    timeThen = millis();
     do{
         delay(600);
         value = getButton();
