@@ -782,7 +782,7 @@ void firstpagedisplay(){
     u8g2.drawBox(114, 18, 2, 2);
     u8g2.setCursor(100, 26);
     u8g2.print(temperat);
-    u8g2.print(F(" °C"));
+    u8g2.print(F(" C"));
     
     /*Tower signal Display*/
     u8g2.drawLine(0, 0, 6, 0);
