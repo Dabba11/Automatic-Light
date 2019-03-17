@@ -26,22 +26,23 @@
 #include "Wire.h"
 #include <SoftwareSerial.h>
 /*Initialize for the display*/
-U8G2_ST7920_128X64_1_SW_SPI u8g2(U8G2_R0, 2, 4, 6); //u8g2(U8G2_R0, En, Rw, Rs) (2, 4, 6);
+U8G2_ST7920_128X64_1_SW_SPI u8g2(U8G2_R0, 3, 5, 2); //u8g2(U8G2_R0, En, Rw, Rs) (2, 4, 6); for mega
 //MicroController mapping, u8g2(U8G2_R0, 3, 5, 2)
 /*The "1" in initialization means it reserves 128 bytes of buffer, "2" reserves 256 bytes and "F" uses 1024 bytes*/
-SoftwareSerial mySerial(10, 11);
+SoftwareSerial mySerial(9, 10);
 
 #define DS3231_I2C_ADDRESS 0x68
 #define relayPin A1
-#define buzzerPin A3
-#define lcdVcc 5
-#define gsmReset 12
+#define buzzerPin 13
+#define lcdVcc 4
+#define gsmReset 11
 #define tempPin A2
 enum DataType {
     CMD     = 0,
     DATA    = 1,
     CALL = 2
 };
+bool blcReturn = false;
 bool call;
 char sajalnum[10];
 bool initialized = false;
@@ -55,8 +56,9 @@ unsigned long timeThen;
 //const byte numCols   = 4;
 byte flag1=0, flag2=0;
 bool msgbucket = 0, sentbucket = 0, sentbucketcall = 0;
-char clientNum[10] = "9864424850";
+char clientNum[10] = "9846773552";
 byte i;
+bool checkBalanceTrue = false;
 unsigned long rtcdelaytime;
 int arrayam[12] = {0,0,0,0,0,0,0,0,0,0,0,0};
 int arraypm[12] = {0,0,0,0,0,0,0,0,0,0,0,0};
@@ -75,10 +77,10 @@ OnewireKeypad <Print, 16 > KP2(Serial, KEYS, 4, 4, A0, 4700, 1000 );
 
 byte second, minute, hour;
 unsigned int actual, strength;
+int Rout;
 
 void setup(void) {
-    delay(2000);
-    //Serial.begin(9600);
+    delay(5000);
     Wire.begin();
     mySerial.begin(9600);
     u8g2.begin();                                  /*Initialize u8g2*/
@@ -87,13 +89,12 @@ void setup(void) {
     pinMode(buzzerPin,OUTPUT);
     pinMode(gsmReset,OUTPUT);
     digitalWrite(gsmReset, LOW);
-    //Serial.println("Starting");
     if(checkPower()){
-        //mySerial.write("AT+CSCLK=0\r");
-       // mySerial.write("AT+CLIP=1\r\n");
+        mySerial.write("AT+CSCLK=2\r");
+        delay(500);
+        mySerial.write("ATE0\r");
         checkWith("AT+CLIP=1\r\n","OK\r\n",200,DATA);
     }
-    //Serial.println(F("GSM start successful"));
     delay(1000);
     digitalWrite(lcdVcc, HIGH);
     delay(2500);
@@ -109,8 +110,7 @@ void setup(void) {
         u8g2.setCursor(37, 40);
         u8g2.print(F("LOADING..."));
     }while(u8g2.nextPage());
-    //Serial.println(F("intro page paxi"));
-    KP2.SetKeypadVoltage(5.0);
+    KP2.SetKeypadVoltage(5.04);
 //    KP2.setHoldTime(80000);
 //    KP2.setDebounceTime(200);
 //    myKeypad.addEventListener(keypadEvent);
@@ -119,32 +119,19 @@ void setup(void) {
     delay(3000);
     digitalWrite(relayPin,LOW);
     u8g2.clearDisplay();
-
-    byte firstdigit  = EEPROM.read(1);
-    byte seconddigit = EEPROM.read(2);
-    byte j =0;
-    if((firstdigit != 0) &&(seconddigit != 0)){
-        for(i = 3;i <firstdigit+3; i++){
-            arrayam[i-3] = EEPROM.read(i);           
-        }
-        while(j < seconddigit){
-            arraypm[j] = EEPROM.read(i);
-            j++; i++;                 
-        }
-    }
+    
+    capsuleOperation();
     digitalWrite(buzzerPin,HIGH);
     delay(2000);
     digitalWrite(buzzerPin,LOW);
+    
+
     if(checkWith("AT+CSQ\r\n","+CSQ: ",2000,CMD)){  /*Signal Strength extraction*/
         strength = balance;
         delay(1000);
         mySerialFlush();
-    }
-     if(checkWith("AT+CUSD=1,\"*400#\"\r\n","Rs ",15000,CMD)){  /*Balance update*/
-        actual = balance;
-        //Serial.println(F("balance: "));
-        //Serial.print(balance);
-        mySerialFlush();
+
+        delay(6000);
     }
     readDS3231time(&second, &minute, &hour);  /* obtain the real-time from RTC*/
     u8g2.firstPage();
@@ -156,18 +143,19 @@ void setup(void) {
     
     mySerialFlush();
     wdt_disable();
+    digitalWrite(lcdVcc, LOW);
 }
 
 //void(* resetFunc) (void) = 0; //declare reset function at address 0
 bool firstOff = 0;
+
 void loop(void) {
-    //Serial.println(F("void ko suru ma ho hai"));
-    delay(2000);
+
+    //--------------- switch section -----------//
    
     //-------------------------------------------------- 1 minute section-----------
     timeThen = millis()/60000;
     if((timeThen - rtcdelaytime) >= 1){
-        //Serial.println(timeThen - rtcdelaytime);
         rtcdelaytime = millis()/60000;
         
         if(checkWith("AT+CSQ\r\n","+CSQ: ",2000,CMD)){  /*Signal Strength extraction*/
@@ -175,11 +163,17 @@ void loop(void) {
             delay(1000);
             mySerialFlush();
         }
+
+        if(checkBalanceTrue == true){
          if(checkWith("AT+CUSD=1,\"*400#\"\r\n","Rs ",15000,CMD)){  /*Balance update*/
             actual = balance;
-            //Serial.println(F("balance: "));
-            //Serial.print(balance);
+            blcReturn = true;
             mySerialFlush();
+            checkBalanceTrue = false;
+         }
+         else{
+          blcReturn = false;
+         }
         }
         readDS3231time(&second, &minute, &hour);  /* obtain the real-time only at each 60 secs time interval*/
         u8g2.firstPage();
@@ -188,7 +182,6 @@ void loop(void) {
             toShowSchedule();
         }while(u8g2.nextPage());
 
-        //--------------- switch section -----------//
         byte flag3 = 0, flag4 = 0;
         if(hour <12){
             for(i=0; i<12; i++){
@@ -210,11 +203,10 @@ void loop(void) {
             if(flag3 == 0){
                 digitalWrite(relayPin,LOW);
                 if (firstOff == 0){
-                    //Serial.println(F("Only once in loop"));
                     sentbucket = 1;
                     firstOff = 1;
                 }
-                if(flag1 = 1){
+                if(flag1 == 1){
                     digitalWrite(buzzerPin,HIGH);
                     msgbucket = 0;
                     sentbucket = 1;
@@ -236,7 +228,6 @@ void loop(void) {
                         msgbucket = 1;
                         sentbucket = 1;
                         delay(2000);
-                        
                         digitalWrite(buzzerPin,LOW);
                         flag2=1;
                         delay(2000);
@@ -259,51 +250,44 @@ void loop(void) {
                 }
             }
         }
+        if(sentbucket == 1){
+            sendSMS(clientNum);
+            mySerialFlush();
+        }
+        if(sentbucketcall == 1){
+            sendSMS(sajalnum);
+        }
     }
     
     //------------------------------------ 1 minute area ---------------
     
-    //Serial.println(F("loop ma aba"));
-    if(sentbucket == 1){
-        sendSMS(clientNum);
-        mySerialFlush();
-    }
-    if(sentbucketcall == 1){
-        sendSMS(sajalnum);
-    }
-    //Serial.println(F("sentbucket ko kaam sakkiyepaxi"));
-   
+   if(Serial.available()>0){
+    mySerial.write(Serial.read());
+   }
     while(mySerial.available()>0){
-        //Serial.println("Inside my serial");
         char in_char = mySerial.read();
-        //Serial.print(in_char);
         if (in_char == 'R'){
             delay(10);
             in_char = mySerial.read();
-            //Serial.println(in_char);
             if(in_char == 'I'){
                 delay(10);
                 in_char = mySerial.read();
-                //Serial.println(in_char);
                 if(in_char == 'N'){
                     delay(10);
                     in_char = mySerial.read();
-                    //Serial.println(in_char);
                     if(in_char == 'G'){
                         delay(10);
                         call = true;
-                        //Serial.println(F("Inside RING"));
                         if(checkWith("","+CLIP: \"",100,CMD)){ 
-                            //Serial.print(F("lah aaba pugyo haii")); 
-                            //for(int i=0;i<10;i++){Serial.print(sajalnum[i]);}
                             mySerial.println("ATH");  /*Hanging up the call*/
                             mySerialFlush();
                             delay(5000);
                             if (!sendSMS(sajalnum)){
                                 sentbucketcall = 1;
                             }
-                            else{ sentbucketcall = 0; }
+                            else{sentbucketcall = 0; }
                             call = false;
+                            break;
                         }
                     }
                 }
@@ -311,7 +295,7 @@ void loop(void) {
         }
     }
  
-    //Serial.println(F("hangup ko thau paxi"));
+ 
 
 
 
@@ -322,14 +306,16 @@ void loop(void) {
     byte len2;
     byte k=12;
     byte j=0;
+    delay(1000);
     char valueloop = getButton();
-    //delay(500);
     /*------------LIGHT SCHEDULE SETTING--------------*/  
     if(valueloop == 'C'){
+        delay(1000);
         len1 = inputvalue("AM :", arrayam1);
         delay(1000);
         len2 = inputvalue("PM :", arraypm1);
         for(i=len1; i <12; i++){ arrayam1[len1] = 0; len1++; }
+        
         for(i=len2; i <12; i++){ arraypm1[len2] = 0; len2++; }
 
         /*to clear below smart farm only, setCurrTileRow() needs a loop taking more memory than firstpage()-nextpage()*/
@@ -383,13 +369,12 @@ void loop(void) {
         do{
             u8g2.setCursor(10, 21);
             u8g2.print(F("SAVE SETTING?"));
-            //u8g2.drawStr(10, 21, "SAVE SETTING?");
-            u8g2.setCursor(4, 37);
+            u8g2.setCursor(6, 37);
             u8g2.print(F( "D - Yes"));
             u8g2.setCursor(6, 51);
             u8g2.print(F( "A - No"));
         }while(u8g2.nextPage());
-        timeThen = millis();
+        delay(1500);
         do{
             valueloop = getButton();
             if (valueloop == 'A'){
@@ -399,13 +384,14 @@ void loop(void) {
                 timeThen = millis();
                 goto exittime1;
             }
+            delay(600);
         }while(valueloop != 'D');
         updateEeprom(arrayam1,arraypm1); 
         copy(arrayam1,arrayam,len1);
         copy(arraypm1,arraypm,len2);
         exittime1:
             u8g2.clearDisplay(); /*Because delay() cannot be invoked after firstPage() is called*/
-            delay(3000); 
+            delay(3000);
             u8g2.firstPage();
             do{
                 firstpagedisplay();
@@ -463,7 +449,7 @@ void loop(void) {
                   if(ctmp1 == 20){
                       hour2 = hour2 * 10;
                       hour2 += hour1;
-                      if( hour2 > 12){
+                      if(hour2 > 12){
                           setpixels(14, 38, 14, 10);
                           u8g2.sendBuffer();
                           hour2 = 0;
@@ -508,13 +494,13 @@ void loop(void) {
               if((valueup == 'A') && (ctmp1 != 14)){ 
                   if(hour2 > 9){
                       ctmp1 -= 12;
-                      setpixels(ctmp1, 38, 13, 11);
+                      setpixels(ctmp1, 38, 13, 10);
                       u8g2.sendBuffer();
                       hour2 = 0;
                   }
                   else{
                       ctmp1 -= 6;
-                      setpixels(ctmp1, 38, 13, 11);
+                      setpixels(ctmp1, 38, 13, 10);
                       u8g2.sendBuffer();
                       hour2 = 0;
                       goto gotohour;
@@ -524,16 +510,18 @@ void loop(void) {
                   timeThen = millis();
                   goto exittime;
               }
+              delay(600);
           }while(valueup != 'D');
           
         //------MINUTE SETUP-------//
-          timeThen = millis();
+        timeThen = millis();
         gotominute:
           ctmp1=61;
 
           check:
               if((valueup == '*')|| (valueup =='0')||(valueup == '#')){
                   do{
+                      delay(600);
                       valueup = getButton();
                       if (valueup == 'D'){
                           goto gotominute;
@@ -546,7 +534,8 @@ void loop(void) {
                       if ((millis() - timeThen) >= 90000){
                           timeThen = millis();
                           goto exittime;
-                      }   
+                      }
+                      delay(600);
                   }while(1);
               }
           /*since we cannot use clearBuffer() to erase > on hour side and rewrite on the minute side without erasing everything in that row, I used setpixels() function*/    
@@ -557,6 +546,7 @@ void loop(void) {
           u8g2.print(F( ">"));
           u8g2.setBufferCurrTileRow(5);
           u8g2.sendBuffer();
+          delay(2000);
           
           do{
               valueup = getButton();
@@ -569,10 +559,13 @@ void loop(void) {
                   minute1 = valueup - '0';
                   if(ctmp1 == 68){
                       minute2 = minute2 * 10;
-                      minute2 = minute2 + minute1;
+                      minute2 += minute1;
                       if(minute2 > 59){
-                          setpixels(61, 38, 14, 10);
+                          u8g2.setBufferCurrTileRow(0);
+                          setpixels(61, 0, 14, 10);
+                          u8g2.setBufferCurrTileRow(5);
                           u8g2.sendBuffer();
+                          minute2 = 0;
                           goto gotominute;
                       }
                   }
@@ -581,32 +574,6 @@ void loop(void) {
                   }
                   ctmp1 += 7;
               }
-//              if(ctmp1 < 64){
-//                  if(valueup == '*'){
-//                      u8g2.setBufferCurrTileRow(0);
-//                      u8g2.drawStr(ctmp1, 10, "10");
-//                      u8g2.setBufferCurrTileRow(5);
-//                      u8g2.sendBuffer();
-//                      minute2 = 10;
-//                      goto check2;
-//                  }
-//                  if(valueup == '0'){
-//                      u8g2.setBufferCurrTileRow(0);
-//                      u8g2.drawStr(ctmp1, 10, "11");
-//                      u8g2.setBufferCurrTileRow(5);
-//                      u8g2.sendBuffer();
-//                      minute2 = 11;
-//                      goto check2;
-//                  }
-//                  if(valueup == '#'){
-//                      u8g2.setBufferCurrTileRow(0);
-//                      u8g2.drawStr(ctmp1, 10, "10");
-//                      u8g2.setBufferCurrTileRow(5);
-//                      u8g2.sendBuffer();
-//                      minute2 = 12;
-//                      goto check2;
-//                  }
-//              }
               if((valueup == 'A') &&(ctmp1 != 61)){
                   if(minute2 > 9){
                       ctmp1 -= 14;
@@ -625,7 +592,8 @@ void loop(void) {
               if ((millis() - timeThen) >= 90000){
                   timeThen = millis();
                   goto exittime;
-              }                
+              }
+              delay(600);               
           }while(valueup != 'D');
           //---AM\PM Change---//
           timeThen = millis();
@@ -639,7 +607,7 @@ void loop(void) {
           u8g2.clearBuffer();
           u8g2.setBufferCurrTileRow(0);
           u8g2.setCursor(1, 10);
-          u8g2.print(F( "C= Change,D= Done"));
+          u8g2.print(F( "D= Done, C= Change"));
           u8g2.setBufferCurrTileRow(7);
           u8g2.sendBuffer();
           u8g2.clearBuffer(); /*so that C= change part donot appear in time setting tile (Sequence is important!!!!)*/
@@ -656,7 +624,6 @@ void loop(void) {
           if((valueup == '*')|| (valueup =='0')||(valueup == '#')){
               do{
                   valueup = getButton();
-                  
                   if (valueup == 'D'){
                       goto gotochange;
                   }
@@ -668,11 +635,12 @@ void loop(void) {
                   if ((millis() - timeThen) >= 90000){
                       timeThen = millis();
                       goto exittime;
-                  }   
+                  }  
+                  delay(600); 
               }while(1);
           }
           change = false;
-          
+          delay(2000);
           do{
               valueup = getButton();
               if(valueup == 'C'){
@@ -709,6 +677,7 @@ void loop(void) {
                   timeThen = millis();
                   goto exittime;
               }
+              delay(600);
           }while(valueup != 'D');
           u8g2.clearDisplay();
           delay(3000);
@@ -716,13 +685,12 @@ void loop(void) {
           do{
           u8g2.setCursor(10, 21);
             u8g2.print(F("SAVE SETTING?"));
-            //u8g2.drawStr(10, 21, "SAVE SETTING?");
-            u8g2.setCursor(4, 37);
+            u8g2.setCursor(6, 37);
             u8g2.print(F("D - Yes"));
             u8g2.setCursor(6, 51);
-            u8g2.print(F( "A - No"));
+            u8g2.print(F("A - No"));
           }while(u8g2.nextPage());
-          
+          delay(1500);
           do{
               valueloop = getButton();
               if(valueloop == 'A'){
@@ -732,10 +700,11 @@ void loop(void) {
                   timeThen = millis();
                   goto exittime;
               }
+              delay(600);
           }while(valueloop != 'D');
           hour2 = hourtmp2;
           setDS3231time(00,minute2,hour2);   
-        exittime:
+          exittime:
           u8g2.clearDisplay();
           delay(3000);
             readDS3231time(&second, &minute, &hour);
@@ -780,7 +749,6 @@ byte bcdToDec(byte val){return( (val/16*10) + (val%16) );}
 
 void firstpagedisplay(){
     //Smart farm
-    //Serial.println(F("in firstpage"));
     u8g2.setCursor(2, 24);
     u8g2.print(F("dabba FARM"));
 
@@ -801,7 +769,12 @@ void firstpagedisplay(){
     /*Balance Display*/
     u8g2.setCursor(78, 11);
     u8g2.print(F("Rs. "));
-    u8g2.print(actual);
+   if (blcReturn == false){
+    u8g2.print("XX");
+   }
+   else{
+      u8g2.print(actual);
+   }
     u8g2.drawHLine(0, 27, 128);
 
     /*Temperature Display*/
@@ -815,9 +788,7 @@ void firstpagedisplay(){
     u8g2.drawLine(0, 0, 3, 3);
     u8g2.drawLine(6, 0, 3, 3);
     u8g2.drawLine(3, 0, 3, 9);
-    //Serial.println(F("Signal strength value"));
-    //Serial.print(strength);
-    if(strength >= 0){
+    if(strength > 0){
         u8g2.drawVLine(6, 8, 1);
         if(strength >= 9){
             u8g2.drawVLine(9, 6, 3);
@@ -842,11 +813,10 @@ byte inputvalue(String display1, int arrayvalue[]){
     byte flag99 = 0;
     for(i = 0; i<4; i++){
         u8g2.setBufferCurrTileRow(0);
-        setpixels(0, 0, 128, 10); //clearing space below SMART FARM
+        setpixels(0, 0, 128, 10);             /*clearing space below SMART FARM*/
         u8g2.setBufferCurrTileRow(4+i);
         u8g2.sendBuffer();
     }
-    delay(1000);
     u8g2.setBufferCurrTileRow(0);
     u8g2.setCursor(0, 10);
     u8g2.print(display1);
@@ -864,7 +834,9 @@ byte inputvalue(String display1, int arrayvalue[]){
     u8g2.print(F( ">>"));
     u8g2.setBufferCurrTileRow(5);
     u8g2.sendBuffer();
+    delay(2000);
     do{
+        delay(600);
         value = getButton();
         if ((millis() - timeThen) >= 120000){
             flag99 = 13;
@@ -924,11 +896,65 @@ byte inputvalue(String display1, int arrayvalue[]){
         } 
         if(dtmp1 >= 12){
             break;
-        }    
+        }
+        delay(500);
     }while(value != 'D');
     return dtmp1;
 }
 
+void capsuleOperation(void){
+    Rout = 10000/(1024.0/analogRead(A3)-1);
+    if (Rout < 12000){
+        if (Rout >= 100 && Rout <= 2000){
+            arrayam[0] = 2;
+            arrayam[1] = 4;
+            arrayam[2] = 6;
+            arraypm[0] = 6;
+            arraypm[1] = 8;
+            arraypm[2] = 9;
+        }
+        else if(Rout >= 2800 && Rout <= 4200){
+            arrayam[0] = 1;
+            arrayam[1] = 3;
+            arrayam[2] = 4;
+            arraypm[0] = 4;
+            arraypm[1] = 5;
+            arraypm[2] = 7;
+        }
+        else if(Rout >= 4200 && Rout <=5200){
+            arrayam[0] = 1;
+            arrayam[1] = 3;
+            arrayam[2] = 4;
+            arraypm[0] = 4;
+            arraypm[1] = 5;
+            arraypm[2] = 7;
+        }
+        else{
+            arrayam[0] = 1;
+            arrayam[1] = 10;
+            arrayam[2] = 4;
+            arraypm[0] = 4;
+            arraypm[1] = 5;
+            arraypm[2] = 7;
+        }
+        EEPROM.write(1, 3);
+        EEPROM.write(2, 3);
+    }
+    else{
+        byte firstdigit  = EEPROM.read(1);
+        byte seconddigit = EEPROM.read(2);
+        byte j =0;
+        if((firstdigit != 0) &&(seconddigit != 0)){
+            for(i = 3;i <firstdigit+3; i++){
+                arrayam[i-3] = EEPROM.read(i);           
+            }
+            while(j < seconddigit){
+                arraypm[j] = EEPROM.read(i);
+                j++; i++;                 
+            }
+        }
+    }
+}
 
 
 void setDS3231time(byte second, byte minute, byte hour){
@@ -953,21 +979,20 @@ void readDS3231time(byte *second,byte *minute,byte *hour)
     *second = bcdToDec(Wire.read() & 0x7f);
     
     *minute = bcdToDec(Wire.read());
-    if (minute != (1||2||3||4||5||6||7||8||9)){
-      goto takeagain;
-    }
+//    if (minute != (1||2||3||4||5||6||7||8||9)){
+//      goto takeagain;
+//    }
     *hour = bcdToDec(Wire.read() & 0x3f);
-     if (hour != (1||2||3||4||5||6||7||8||9)){
-      goto takeagain;
-    }
+//     if (hour != (1||2||3||4||5||6||7||8||9)){
+//      goto takeagain;
+//    }
 }
 
 
 char getButton(){
     //char keypressed = KP2.Getkey();
-    delay(500);
+    delay(100);
     if (char key = KP2.Getkey()){
-      //if((keypressed != NO_KEY) &&(KP2.Key_State()== PRESSED)){
         return key;
     } 
     return NO_KEY;
@@ -1017,51 +1042,57 @@ void toShowSchedule(){
 
 void showSchedule(int arrays[], int len, int pxht){
     byte j = 12;
-    //setpixels(14, pxht-11, 128, 12);
     /*Showing Schedule*/
-     if (arrays[0] == 0){
-        u8g2.setCursor(16, pxht+1);
-        u8g2.print(F("NOT SET"));
-        u8g2.drawHLine(0, 37, 128);
+    u8g2.setCursor(16, pxht+1);
+    if (Rout <= 100){
+        u8g2.print(F("Remove Fuse!!!"));
     }
-    for (i=0; i<len; i++){
-        if(arrays[i] != 0){
-            u8g2.setCursor(j, pxht+1);
-            u8g2.print(arrays[i]);
-            j += 8;
-            if(arrays[i]>9){
-                j += 7;
-            }
-            /*Showing , (comma) after each number except the last non-zero in the list*/
-            if(arrays[i+1] != 0){
-              u8g2.drawVLine(j-2, pxht-2, 2);
+    else{
+        if (arrays[0] == 0){
+            u8g2.print(F("NONE"));
+            u8g2.drawHLine(0, 37, 128);
+        }
+        for (i=0; i<len; i++){
+            if(arrays[i] != 0){
+                u8g2.setCursor(j, pxht+1);
+                u8g2.print(arrays[i]);
+                j += 8;
+                if(arrays[i]>9){
+                    j += 7;
+                }
+                /*Showing , (comma) after each number except the last non-zero in the list*/
+                if(arrays[i+1] != 0){
+                  u8g2.drawVLine(j-2, pxht-2, 2);
+                }
             }
         }
     }
 }
 
 bool sendSMS(char* num){
-    char array1[14]="+977";
+    checkPower();
+    String array1 = "AT+CMGS=\"+977";  
     for(byte i=0; i<10; i++){
-        array1[i+4] = num[i];
+        array1 += String(num[i]);
     }
+     array1 +="\"\r\n";
 
     String msgup = "FARM ALERT: Dear Customer, your farm light is "; /*47 length*/
     if(msgbucket == 1){
-        msgup += "ON\nAM: ";
+        msgup += "ON\nSchedule\nAM: ";
     }
     else{
-       msgup +="OFF\nAM: ";
+       msgup +="OFF\nSchedule\nAM: ";
     }
     byte s = 0;
     while(arrayam[s] != 0){
-        msgup += (String(arrayam[s]) + ",");
+        msgup += (String(arrayam[s]) + ", ");
         s++;
     }
     msgup +="\nPM: ";
     s = 0;
     while(arraypm[s] != 0){
-        msgup += (String(arraypm[s]) + ",");
+        msgup += (String(arraypm[s]) + ", ");
         s++;
     }
     msgup += "\nTMP: ";
@@ -1069,82 +1100,76 @@ bool sendSMS(char* num){
     msgup = msgup + String(t)+"\'C";
 
     
-    if(!checkWith("AT\r\n","OK\r\n",500,DATA)){
-        return  false;
-    }
+//    if(!checkWith("AT\r\n","OK\r\n",500,DATA)){
+//        return  false;
+//    }
     if(!checkWith("AT+CMGF=1\r\n","OK\r\n",500,DATA)){
         return false;
     }
-    if(!checkWith("AT+CMGS=\"","",50,DATA)){
-        return false;
-    }
-    if(!checkWith("+9779864424850","",10,DATA)){
-        return false;
-    }  
-    if(!checkWith("\"\r\n",">",100,DATA)){
-        return false;
-    }
-     mySerial.println(msgup);
-//    if(!checkWith(msgup+'\n',"",50,DATA)){
+//    if(!checkWith("AT+CMGS=","",500,DATA)){
 //        return false;
 //    }
-    
+//    if(!checkWith(array1,"",1000,DATA)){
+//        return false;
+//    }  
+//    if(!checkWith(array1,">",1000,DATA)){
+//        return false;
+//    }
+    mySerial.println(array1);
+    delay(500);
+    mySerial.println(msgup);
+    delay(500);  
     mySerial.println((char)26);
-    
-    if(checkWith("", "+CMGS: ", 5000, CMD)){
+   
+    if(checkWith("", "+CMGS: ", 10000, CMD)){
         if (notinitialized){
             previousIndex = balance - 1;
-            notinitialized = false; 
+             
         }
         if (balance == (previousIndex + 1)){
             previousIndex ++;
+            notinitialized = false;
             balance = 0;
             sentbucket = 0;
+            checkBalanceTrue = true;
+            return true;
         }
     }
     delay(1000);
-    return true;
+    return false;
 }
 
 
 
 bool checkWith(const char* cmd, const char* resp, unsigned int timeout, DataType type)
 {
-    unsigned int charTimeOut=20000;
+  
     unsigned int i;
     char c;
     int length1 = strlen(cmd);
-    //Serial.println("inside checkWITH:   ");
     //-------------------------------------- cmd send area ------------------------------
-    if(strlen(cmd) != 0){
-        for (i=0; i<length1; i++){
-            mySerial.write(cmd[i]);
-            //Serial.print(cmd[i]);
-        }
+    for (i=0; i<length1; i++){
+        mySerial.write(cmd[i]);
     }
 
     //-------------------------------------------------cmd area--------------------------------
-
     int len = strlen(resp);
     int sum =0;
     i=0;
     //----------------------------------------------resp area -------------------------------
-    if(len != 0){
+    if(len > 0){
         unsigned long timerStart, prevChar;
         timerStart = millis();
-        prevChar = 0;
         while(1){
             if(mySerial.available() > 0){
                 c = mySerial.read();
-                //Serial.print(c);
-                prevChar = millis();
                 sum = (c == resp[sum]? sum+1: 0);
                 if(sum == len){
                     // ---------------------------------------
                     if(type == CMD){
                         balance = 0;
                         while(1){
-                            if(mySerial.available()>0){  
+                            if(mySerial.available()>0){
                                 c = mySerial.read(); 
                                 if(( c == '.') || (c == ' ') || (c == ',')|| (c == '\"') ||(c =='\r')){
                                     mySerialFlush();
@@ -1154,7 +1179,7 @@ bool checkWith(const char* cmd, const char* resp, unsigned int timeout, DataType
                                 else{
                                     balance = balance * 10;
                                 }
-                                if(call){
+                                if(call == true){
                                     sajalnum[i] = c;
                                     i++;
                                 }
@@ -1165,10 +1190,15 @@ bool checkWith(const char* cmd, const char* resp, unsigned int timeout, DataType
                     mySerialFlush();
                     return true;
                 }
-                //----------------------------------------
-                if((millis()-timerStart) > 10000UL ){ return false; }
-                if((unsigned long) (((millis() - prevChar) > charTimeOut) && (prevChar !=0))){ return false; }
             }
+
+            //-------------TIMEOUT AREA---------------------------
+            if((millis() - timerStart) > timeout){ 
+//                Serial.println(millis()-timerStart);
+                return false;
+            }
+            // -----------------TIMEOUT AREA--------------------
+            
         }
     }
     //----------------------------------------------end of resp area
@@ -1177,12 +1207,9 @@ bool checkWith(const char* cmd, const char* resp, unsigned int timeout, DataType
 }
 
 bool checkPower(){
-    //Serial.println("inside checkpower");
     checkWith("AT\r\n","OK\r\n",500,DATA);
-    //Serial.println("First check");
     checkWith("AT\r\n","OK\r\n",500,DATA);
     if(!checkWith("AT\r\n","OK\r\n",500,DATA)){
-        //Serial.println("inside there");
         digitalWrite(gsmReset,HIGH);
         delay(2000);
         digitalWrite(gsmReset,LOW);
@@ -1198,13 +1225,12 @@ void mySerialFlush(){
         mySerial.read();
     }
 }
-/*Data pin of temp sensor to tempPin, from tempPin put 10K resistor to GND, other end of sensor to 5Volt*/
-/*Also the 5 volt end should join across Vref as well(Optional)*/
+/*Data pin of temp sensor to tempPin, from tempPin put 10K resistor to Ground, other end of sensor to 5Volt*/
 int getTemp(void){
     float A = 1.009249522e-03, B = 2.378405444e-04, C = 2.019202697e-07;
     //Voltage Divider between 5Volt and sensor end
     float Rout = log(10000*(1024.0/analogRead(tempPin)-1));  //Resistance of thermistor in the specific voltage level
     //The polarity of thermistor ends can be changed to change how voltage is measured across it
-    //Mathematically, Resistance => Temperature done using Stein-Hart equation Below (in Kelvin)
+    /*Mathematically, Resistance => Temperature done using Stein-Hart equation Below (in Kelvin) (-273 is done for Celcius value and +2.34 is an offset for approximate accuracy)*/
     return (int((1.0/(A+B*Rout + C*Rout*Rout*Rout)) - 273.15 + 2.34));
 }
