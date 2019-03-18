@@ -779,7 +779,7 @@ void firstpagedisplay(){
 
     /*Temperature Display*/
     int temperat = getTemp();
-    u8g2.drawBox(114, 18, 2, 2);
+    u8g2.drawBox(116, 16, 2, 2);
     u8g2.setCursor(100, 26);
     u8g2.print(temperat);
     u8g2.print(F(" C"));
