@@ -1,10 +1,12 @@
 #define tempPin A3
-#define ledPin A4
+#define ledYellow A4
 #define relayPin A5
+#define ledRed 12
 void setup() {
     pinMode(tempPin, INPUT);
     pinMode(relayPin, OUTPUT);
-    pinMode(ledPin, OUTPUT);
+    pinMode(ledRed, OUTPUT);
+    pinMode(ledYellow, OUTPUT);
 }
 void loop() {
     float sumTemp = 0;
@@ -12,9 +14,15 @@ void loop() {
         sumTemp += getTemp();
         delay(2000);
     }
-    if ((sumTemp/60 < 28)||(sumTemp/60 >35)){
+    if (sumTemp/60 < 25){
         digitalWrite(relayPin, HIGH);
-        digitalWrite(ledPin, HIGH);
+        digitalWrite(ledYellow, HIGH);
+        digitalWrite(ledRed, LOW);
+    }
+    else if (sumTemp/60 >33){
+        digitalWrite(relayPin, HIGH);
+        digitalWrite(ledYellow, LOW);
+        digitalWrite(ledRed, HIGH);
     }
 //    else if(sumTemp/60 > 35){
 //        //digitalWrite(moreLED, HIGH);
@@ -27,7 +35,8 @@ void loop() {
 //    }
     else{
         digitalWrite(relayPin, LOW);
-        digitalWrite(ledPin, LOW);
+        digitalWrite(ledYellow, LOW);
+        digitalWrite(ledRed, LOW);
     }
     delay(1000);
 }
