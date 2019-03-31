@@ -1,7 +1,7 @@
 #define tempPin A3
 #define ledYellow A4
 #define relayPin A5
-#define ledRed 12
+#define ledRed 11
 void setup() {
     pinMode(tempPin, INPUT);
     pinMode(relayPin, OUTPUT);
