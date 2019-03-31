@@ -44,6 +44,7 @@ enum DataType {
 };
 bool blcReturn = false;
 bool call;
+bool getPack = false;
 char sajalnum[10];
 bool initialized = false;
 unsigned int balance;
@@ -56,7 +57,7 @@ unsigned long timeThen;
 //const byte numCols   = 4;
 byte flag1=0, flag2=0;
 bool msgbucket = 0, sentbucket = 0, sentbucketcall = 0;
-char clientNum[10] = "9846773552";
+char clientNum[10] = "9856028812";
 byte i;
 bool checkBalanceTrue = false;
 unsigned long rtcdelaytime;
@@ -119,8 +120,19 @@ void setup(void) {
     delay(3000);
     digitalWrite(relayPin,LOW);
     u8g2.clearDisplay();
-    
-    capsuleOperation();
+
+    byte firstdigit  = EEPROM.read(1);
+    byte seconddigit = EEPROM.read(2);
+    byte j =0;
+    if((firstdigit != 0) &&(seconddigit != 0)){
+        for(i = 3;i <firstdigit+3; i++){
+            arrayam[i-3] = EEPROM.read(i);           
+        }
+        while(j < seconddigit){
+            arraypm[j] = EEPROM.read(i);
+            j++; i++;                 
+        }
+    }
     digitalWrite(buzzerPin,HIGH);
     delay(2000);
     digitalWrite(buzzerPin,LOW);
@@ -147,7 +159,7 @@ void setup(void) {
 }
 
 //void(* resetFunc) (void) = 0; //declare reset function at address 0
-bool firstOff = 0;
+bool firstOff = !(EEPROM.read(28));
 
 void loop(void) {
 
@@ -166,10 +178,15 @@ void loop(void) {
 
         if(checkBalanceTrue == true){
          if(checkWith("AT+CUSD=1,\"*400#\"\r\n","Rs ",15000,CMD)){  /*Balance update*/
-            actual = balance;
+            if (balance < actual){
+              char pack[4] = "1415";
+              getPack = true;
+              sendSMS(pack);
+            }
             blcReturn = true;
             mySerialFlush();
             checkBalanceTrue = false;
+            actual = balance;
          }
          else{
           blcReturn = false;
@@ -198,14 +215,14 @@ void loop(void) {
                         delay(1000);
                         flag1=1;
                     }
+                    if (firstOff == 1){
+                        sentbucket = 0;
+                        firstOff = 0;
+                    }
                 }
             }
             if(flag3 == 0){
                 digitalWrite(relayPin,LOW);
-                if (firstOff == 0){
-                    sentbucket = 1;
-                    firstOff = 1;
-                }
                 if(flag1 == 1){
                     digitalWrite(buzzerPin,HIGH);
                     msgbucket = 0;
@@ -232,14 +249,14 @@ void loop(void) {
                         flag2=1;
                         delay(2000);
                     }
+                    if (firstOff == 1){
+                        sentbucket = 0;
+                        firstOff = 0;
+                    }
                 }
             }
             if(flag4 == 0){
                 digitalWrite(relayPin,LOW);
-                if (firstOff == 0){
-                    sentbucket = 1;
-                    firstOff = 1;
-                }
                 if (flag2 == 1){
                     digitalWrite(buzzerPin,HIGH);
                     msgbucket = 0;
@@ -258,6 +275,7 @@ void loop(void) {
             sendSMS(sajalnum);
         }
     }
+    EEPROM.write(28, sentbucket);
     
     //------------------------------------ 1 minute area ---------------
     
@@ -905,57 +923,46 @@ byte inputvalue(String display1, int arrayvalue[]){
 }
 
 void capsuleOperation(void){
-    Rout = 10000/(1024.0/analogRead(A3)-1);
-    if (Rout < 12000){
-        if (Rout >= 100 && Rout <= 2000){
-            arrayam[0] = 2;
-            arrayam[1] = 4;
-            arrayam[2] = 6;
-            arraypm[0] = 6;
-            arraypm[1] = 8;
-            arraypm[2] = 9;
-        }
-        else if(Rout >= 2800 && Rout <= 4200){
-            arrayam[0] = 1;
-            arrayam[1] = 3;
-            arrayam[2] = 4;
-            arraypm[0] = 4;
-            arraypm[1] = 5;
-            arraypm[2] = 7;
-        }
-        else if(Rout >= 4200 && Rout <=5200){
-            arrayam[0] = 1;
-            arrayam[1] = 3;
-            arrayam[2] = 4;
-            arraypm[0] = 4;
-            arraypm[1] = 5;
-            arraypm[2] = 7;
-        }
-        else{
-            arrayam[0] = 1;
-            arrayam[1] = 10;
-            arrayam[2] = 4;
-            arraypm[0] = 4;
-            arraypm[1] = 5;
-            arraypm[2] = 7;
-        }
-        EEPROM.write(1, 3);
-        EEPROM.write(2, 3);
-    }
-    else{
-        byte firstdigit  = EEPROM.read(1);
-        byte seconddigit = EEPROM.read(2);
-        byte j =0;
-        if((firstdigit != 0) &&(seconddigit != 0)){
-            for(i = 3;i <firstdigit+3; i++){
-                arrayam[i-3] = EEPROM.read(i);           
-            }
-            while(j < seconddigit){
-                arraypm[j] = EEPROM.read(i);
-                j++; i++;                 
-            }
-        }
-    }
+//    Rout = 10000/(1024.0/analogRead(A3)-1);
+//    if (Rout < 12000){
+//        if (Rout >= 100 && Rout <= 2000){
+//            arrayam[0] = 2;
+//            arrayam[1] = 4;
+//            arrayam[2] = 6;
+//            arraypm[0] = 6;
+//            arraypm[1] = 8;
+//            arraypm[2] = 9;
+//        }
+//        else if(Rout >= 2800 && Rout <= 4200){
+//            arrayam[0] = 1;
+//            arrayam[1] = 3;
+//            arrayam[2] = 4;
+//            arraypm[0] = 4;
+//            arraypm[1] = 5;
+//            arraypm[2] = 7;
+//        }
+//        else if(Rout >= 4200 && Rout <=5200){
+//            arrayam[0] = 1;
+//            arrayam[1] = 3;
+//            arrayam[2] = 4;
+//            arraypm[0] = 4;
+//            arraypm[1] = 5;
+//            arraypm[2] = 7;
+//        }
+//        else{
+//            arrayam[0] = 1;
+//            arrayam[1] = 10;
+//            arrayam[2] = 4;
+//            arraypm[0] = 4;
+//            arraypm[1] = 5;
+//            arraypm[2] = 7;
+//        }
+//        EEPROM.write(1, 3);
+//        EEPROM.write(2, 3);
+//    }
+//    else{
+
+//    }
 }
 
 
@@ -1046,10 +1053,10 @@ void showSchedule(int arrays[], int len, int pxht){
     byte j = 12;
     /*Showing Schedule*/
     u8g2.setCursor(16, pxht+1);
-    if (Rout <= 100){
-        u8g2.print(F("Remove Fuse!!!"));
-    }
-    else{
+//    if (Rout <= 100){
+//        u8g2.print(F("Remove Fuse!!!"));
+//    }
+//    else{
         if (arrays[0] == 0){
             u8g2.print(F("NONE"));
             u8g2.drawHLine(0, 37, 128);
@@ -1068,7 +1075,7 @@ void showSchedule(int arrays[], int len, int pxht){
                 }
             }
         }
-    }
+    //}
 }
 
 bool sendSMS(char* num){
@@ -1099,7 +1106,8 @@ bool sendSMS(char* num){
     }
     msgup += "\nTMP: ";
     byte t = getTemp();
-    msgup = msgup + String(t)+"\'C";
+    msgup = msgup + String(t)+"\'C\n";
+    msgup = msgup + "BLNC Rs." + String(actual);
 
     
 //    if(!checkWith("AT\r\n","OK\r\n",500,DATA)){
@@ -1117,8 +1125,13 @@ bool sendSMS(char* num){
 //    if(!checkWith(array1,">",1000,DATA)){
 //        return false;
 //    }
+    if(getPack){
+      msgup = "SMS300";
+      array1 = "AT+CMGS=\"+9771415\"\r\n";
+    }
     mySerial.println(array1);
     delay(500);
+    
     mySerial.println(msgup);
     delay(500);  
     mySerial.println((char)26);
@@ -1134,6 +1147,7 @@ bool sendSMS(char* num){
             balance = 0;
             sentbucket = 0;
             checkBalanceTrue = true;
+            getPack = false;
             return true;
         }
     }
