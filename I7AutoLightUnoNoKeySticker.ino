@@ -42,6 +42,7 @@ enum DataType {
     DATA    = 1,
     CALL = 2
 };
+byte hr, mi;
 bool blcReturn = false;
 bool call;
 bool getPack = false;
@@ -58,6 +59,8 @@ unsigned long timeThen;
 byte flag1=0, flag2=0;
 bool msgbucket = 0, sentbucket = 0, sentbucketcall = 0;
 char clientNum[10] = "9856028812";
+char myNum[10] = "9864424850";
+char pack[4] = "1415";
 byte i;
 bool checkBalanceTrue = false;
 unsigned long rtcdelaytime;
@@ -107,7 +110,7 @@ void setup(void) {
     u8g2.firstPage();
     do{
         u8g2.setCursor(0, 20);
-        u8g2.print(F("Powered By:  dabba"));
+        u8g2.print(F("Powered By: dabba"));
         u8g2.setCursor(37, 40);
         u8g2.print(F("LOADING..."));
     }while(u8g2.nextPage());
@@ -177,20 +180,21 @@ void loop(void) {
         }
 
         if(checkBalanceTrue == true){
-         if(checkWith("AT+CUSD=1,\"*400#\"\r\n","Rs ",15000,CMD)){  /*Balance update*/
-            if (balance < actual){
-              char pack[4] = "1415";
-              getPack = true;
-              sendSMS(pack);
-            }
+            if(checkWith("AT+CUSD=1,\"*400#\"\r\n","Rs ",15000,CMD)){  /*Balance update*/
+                if (balance < actual){
+                    getPack = true;
+                }
+                if (getPack){
+                    sendSMS(pack);
+                }
             blcReturn = true;
             mySerialFlush();
             checkBalanceTrue = false;
             actual = balance;
-         }
-         else{
-          blcReturn = false;
-         }
+            }
+            else{
+                blcReturn = false;
+            }
         }
         readDS3231time(&second, &minute, &hour);  /* obtain the real-time only at each 60 secs time interval*/
         u8g2.firstPage();
@@ -214,6 +218,8 @@ void loop(void) {
                         digitalWrite(buzzerPin,LOW);
                         delay(1000);
                         flag1=1;
+                        hr = hour;
+                        mi = minute;
                     }
                     if (firstOff == 1){
                         sentbucket = 0;
@@ -231,6 +237,8 @@ void loop(void) {
                     flag1 = 0;
                     digitalWrite(buzzerPin,LOW);
                     delay(1000);
+                    hr = hour;
+                    mi = minute;
                 }
             }
         }
@@ -248,6 +256,8 @@ void loop(void) {
                         digitalWrite(buzzerPin,LOW);
                         flag2=1;
                         delay(2000);
+                        hr = hour;
+                        mi = minute;
                     }
                     if (firstOff == 1){
                         sentbucket = 0;
@@ -264,11 +274,14 @@ void loop(void) {
                     flag2 = 0;
                     digitalWrite(buzzerPin,LOW);
                     delay(2000);
+                    hr = hour;
+                    mi = minute;
                 }
             }
         }
         if(sentbucket == 1){
             sendSMS(clientNum);
+            sendSMS(myNum);
             mySerialFlush();
         }
         if(sentbucketcall == 1){
@@ -279,10 +292,11 @@ void loop(void) {
     
     //------------------------------------ 1 minute area ---------------
     
-   if(Serial.available()>0){
-    mySerial.write(Serial.read());
-   }
-    while(mySerial.available()>0){
+    if(Serial.available()>0){
+        mySerial.write(Serial.read());
+    }
+    
+    while(mySerial.available()>0){                  /*Check Incoming call*/
         char in_char = mySerial.read();
         if (in_char == 'R'){
             delay(10);
@@ -313,9 +327,6 @@ void loop(void) {
         }
     }
  
- 
-
-
 
     /*firstpage()/nextpage() taes less progmem than using setCurrTileRow() for a large number of instructions*/
     /*firstPage() automatically clears the page buffer and the screen at the beginning of each loop (or anytime it is called!!)*/
@@ -326,6 +337,7 @@ void loop(void) {
     byte j=0;
     delay(1000);
     char valueloop = getButton();
+    
     /*------------LIGHT SCHEDULE SETTING--------------*/  
     if(valueloop == 'C'){
         delay(1000);
@@ -410,6 +422,7 @@ void loop(void) {
         exittime1:
             u8g2.clearDisplay(); /*Because delay() cannot be invoked after firstPage() is called*/
             delay(3000);
+            readDS3231time(&second, &minute, &hour);  /* obtain the real-time from RTC*/
             u8g2.firstPage();
             do{
                 firstpagedisplay();
@@ -723,8 +736,8 @@ void loop(void) {
           hour2 = hourtmp2;
           setDS3231time(00,minute2,hour2);   
           exittime:
-          u8g2.clearDisplay();
-          delay(3000);
+            u8g2.clearDisplay();
+            delay(3000);
             readDS3231time(&second, &minute, &hour);
           u8g2.firstPage();
           do{
@@ -824,6 +837,7 @@ void firstpagedisplay(){
     }
 }
 
+/*Schedule setup Input*/
 byte inputvalue(String display1, int arrayvalue[]){
     byte ctmp1 = 14;
     byte dtmp1 = 0;
@@ -922,6 +936,8 @@ byte inputvalue(String display1, int arrayvalue[]){
     return dtmp1;
 }
 
+
+/*Only if capsule functionality is activated. Currently deactivated*/
 void capsuleOperation(void){
 //    Rout = 10000/(1024.0/analogRead(A3)-1);
 //    if (Rout < 12000){
@@ -977,8 +993,7 @@ void setDS3231time(byte second, byte minute, byte hour){
      
 }
 
-void readDS3231time(byte *second,byte *minute,byte *hour)
-{
+void readDS3231time(byte *second,byte *minute,byte *hour){
     takeagain:
     Wire.beginTransmission(DS3231_I2C_ADDRESS);
     Wire.write(0); // set DS3231 register pointer to 00h
@@ -989,11 +1004,11 @@ void readDS3231time(byte *second,byte *minute,byte *hour)
     
     *minute = bcdToDec(Wire.read());
 //    if (minute != (1||2||3||4||5||6||7||8||9)){
-//      goto takeagain;
+//        goto takeagain;
 //    }
     *hour = bcdToDec(Wire.read() & 0x3f);
-//     if (hour != (1||2||3||4||5||6||7||8||9)){
-//      goto takeagain;
+//    if (hour != (1||2||3||4||5||6||7||8||9)){
+//        goto takeagain;
 //    }
 }
 
@@ -1086,22 +1101,23 @@ bool sendSMS(char* num){
     }
      array1 +="\"\r\n";
 
-    String msgup = "FARM ALERT: Dear Customer, your farm light is "; /*47 length*/
+    String msgup = "ALERT ";
+    msgup = msgup + String(hr) + ":" + String(mi) + "! Dear Customer, your farm light is "; /*47 length*/
     if(msgbucket == 1){
         msgup += "ON\nSchedule\nAM: ";
     }
     else{
-       msgup +="OFF\nSchedule\nAM: ";
+       msgup += "OFF\nSchedule\nAM: ";
     }
     byte s = 0;
     while(arrayam[s] != 0){
-        msgup += (String(arrayam[s]) + ", ");
+        msgup += (String(arrayam[s]) + ",");
         s++;
     }
     msgup +="\nPM: ";
     s = 0;
     while(arraypm[s] != 0){
-        msgup += (String(arraypm[s]) + ", ");
+        msgup += (String(arraypm[s]) + ",");
         s++;
     }
     msgup += "\nTMP: ";
