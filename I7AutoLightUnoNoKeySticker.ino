@@ -42,7 +42,7 @@ enum DataType {
     DATA    = 1,
     CALL = 2
 };
-byte hr, mi;
+byte hr = 0, mi = 0;
 bool blcReturn = false;
 bool call;
 bool getPack = false;
@@ -59,7 +59,7 @@ unsigned long timeThen;
 byte flag1=0, flag2=0;
 bool msgbucket = 0, sentbucket = 0, sentbucketcall = 0;
 char clientNum[10] = "9856028812";
-char myNum[10] = "9864424850";
+//char clientNum[10] = "9846773552";
 char pack[4] = "1415";
 byte i;
 bool checkBalanceTrue = false;
@@ -80,7 +80,7 @@ OnewireKeypad <Print, 16 > KP2(Serial, KEYS, 4, 4, A0, 4700, 1000 );
 //Keypad myKeypad= Keypad(makeKeymap(keymap), rowPins, colPins, numRows, numCols);
 
 byte second, minute, hour;
-unsigned int actual, strength;
+unsigned int strength, actual = EEPROM.read(29);
 int Rout;
 
 void setup(void) {
@@ -187,10 +187,11 @@ void loop(void) {
                 if (getPack){
                     sendSMS(pack);
                 }
-            blcReturn = true;
-            mySerialFlush();
-            checkBalanceTrue = false;
-            actual = balance;
+                blcReturn = true;
+                mySerialFlush();
+                checkBalanceTrue = false;
+                actual = balance;
+                EEPROM.write(29, actual);
             }
             else{
                 blcReturn = false;
@@ -218,12 +219,12 @@ void loop(void) {
                         digitalWrite(buzzerPin,LOW);
                         delay(1000);
                         flag1=1;
-                        hr = hour;
-                        mi = minute;
                     }
                     if (firstOff == 1){
                         sentbucket = 0;
                         firstOff = 0;
+                        checkBalanceTrue = false;
+                        
                     }
                 }
             }
@@ -237,8 +238,6 @@ void loop(void) {
                     flag1 = 0;
                     digitalWrite(buzzerPin,LOW);
                     delay(1000);
-                    hr = hour;
-                    mi = minute;
                 }
             }
         }
@@ -256,12 +255,11 @@ void loop(void) {
                         digitalWrite(buzzerPin,LOW);
                         flag2=1;
                         delay(2000);
-                        hr = hour;
-                        mi = minute;
                     }
                     if (firstOff == 1){
                         sentbucket = 0;
                         firstOff = 0;
+                        checkBalanceTrue = false;
                     }
                 }
             }
@@ -274,14 +272,12 @@ void loop(void) {
                     flag2 = 0;
                     digitalWrite(buzzerPin,LOW);
                     delay(2000);
-                    hr = hour;
-                    mi = minute;
                 }
             }
         }
         if(sentbucket == 1){
             sendSMS(clientNum);
-            sendSMS(myNum);
+            //sendSMS(myNum);
             mySerialFlush();
         }
         if(sentbucketcall == 1){
@@ -800,12 +796,12 @@ void firstpagedisplay(){
     /*Balance Display*/
     u8g2.setCursor(78, 11);
     u8g2.print(F("Rs. "));
-   if (blcReturn == false){
-    u8g2.print("XX");
-   }
-   else{
-      u8g2.print(actual);
-   }
+    if (blcReturn == false){
+        u8g2.print("XX");
+    }
+    else{
+        u8g2.print(actual);
+    }
     u8g2.drawHLine(0, 27, 128);
 
     /*Temperature Display*/
@@ -1101,30 +1097,34 @@ bool sendSMS(char* num){
     }
      array1 +="\"\r\n";
 
-    String msgup = "ALERT ";
-    msgup = msgup + String(hr) + ":" + String(mi) + "! Dear Customer, your farm light is "; /*47 length*/
+    String msgup = "FARM:Light is "; /*47 length*/
     if(msgbucket == 1){
         msgup += "ON\nSchedule\nAM: ";
     }
-    else{
+    else{                          
        msgup += "OFF\nSchedule\nAM: ";
     }
     byte s = 0;
     while(arrayam[s] != 0){
-        msgup += (String(arrayam[s]) + ",");
+        msgup += String(arrayam[s]);
+        if(arrayam[s+1] != 0){
+            msgup += ",";
+        }
         s++;
     }
     msgup +="\nPM: ";
     s = 0;
     while(arraypm[s] != 0){
-        msgup += (String(arraypm[s]) + ",");
+        msgup += String(arraypm[s]);
+        if(arraypm[s+1] != 0){
+            msgup += ",";
+        }
         s++;
     }
     msgup += "\nTMP: ";
     byte t = getTemp();
     msgup = msgup + String(t)+"\'C\n";
-    msgup = msgup + "BLNC Rs." + String(actual);
-
+    msgup += "Rs." + String(actual);
     
 //    if(!checkWith("AT\r\n","OK\r\n",500,DATA)){
 //        return  false;
@@ -1162,6 +1162,7 @@ bool sendSMS(char* num){
             notinitialized = false;
             balance = 0;
             sentbucket = 0;
+            sentbucketcall = 0;
             checkBalanceTrue = true;
             getPack = false;
             return true;
@@ -1173,8 +1174,7 @@ bool sendSMS(char* num){
 
 
 
-bool checkWith(const char* cmd, const char* resp, unsigned int timeout, DataType type)
-{
+bool checkWith(const char* cmd, const char* resp, unsigned int timeout, DataType type){
   
     unsigned int i;
     char c;
