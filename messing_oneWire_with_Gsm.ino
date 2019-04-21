@@ -549,17 +549,17 @@ void loop()
             delay(800);
             valueup = getButton();
             if(valueup == 'A'){
-                if (heat == 0){
+                if (heat == 1){
                     limit = 100; 
                 }
                 else{
                     limit = 0;
                 }
-                goto nosavelimit;
+                break;
             }
             if ((millis() - timeThen) >= 60000){
                 timeThen = millis(); timeClear = millis();
-                goto nosavelimit;
+                break;
             }
         }while(valueup != 'D');
         EEPROM.write(30, limit);
@@ -572,7 +572,6 @@ void loop()
         else {
             digitalWrite(relay1, LOW);
         }
-        nosavelimit:
         lcd.clear();
         delay(2000);
         firstPagedisplay();
