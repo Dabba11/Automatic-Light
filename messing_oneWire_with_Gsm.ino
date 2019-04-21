@@ -55,7 +55,7 @@ bool checkBalanceTrue = false;
 unsigned int strength, actual = EEPROM.read(29);
 bool heat = EEPROM.read(31);
 byte limit = EEPROM.read(30);
-
+unsigned long newTime;
 bool btmp1;
 char chartmp;
 byte hourtmp2;
@@ -279,7 +279,6 @@ void setup()
     // set the initial time here:
     // DS3231 seconds, minutes, hours, day, date, month, year
     // setDS3231time(00,58,17,3,14,1,18);
-    rtcdelaytime = (millis()/60000)+1;
     mySerialFlush();
     //wtd_disable();
     displayTime(); 
@@ -290,14 +289,14 @@ void setup()
         digitalWrite(relay1, LOW);
     }
     delay(3000);
-    
+    newTime = millis();
+    rtcdelaytime = (millis()/60000)+1;
 }
 
 void(* resetFunc) (void) = 0;//declare reset function at address 0
 bool checked = false;
 byte count = 0;
 unsigned int tempsum = 0;
-unsigned long newTime = millis();
 unsigned int tempavg;
 void loop()
 {
@@ -311,6 +310,7 @@ void loop()
             tempsum = 0;
         }
     }
+    
     //delay(3000);
     timeThen = millis()/60000;
     if((millis() - rtcdelaytime) >= 1){
@@ -412,7 +412,7 @@ void loop()
                 }
             }
         }
-        if (((tempavg > limit) && (heat == 1))||((tempavg < limit)&&(heat == 0))){
+        if ((((tempavg > limit) && (heat == 1))||((tempavg < limit)&&(heat == 0))) && (tempavg != 0){
             digitalWrite(relay1, HIGH);
         }
         else {
@@ -566,6 +566,8 @@ void loop()
         EEPROM.write(31, heat);
         if (((getTemp() > limit) && (heat == 1))||((getTemp() < limit)&&(heat == 0))){
             digitalWrite(relay1, HIGH);
+            tempavg = 0;
+            count = 0;
         }
         else {
             digitalWrite(relay1, LOW);
