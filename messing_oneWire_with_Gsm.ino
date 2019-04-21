@@ -305,8 +305,8 @@ void loop()
         tempsum += getTemp();
         count++;
         newTime = millis();
-        if (count = 10){
-            tempavg = tempsum/10;
+        if (count = 12){
+            tempavg = tempsum/12;
             count = 0;
             tempsum = 0;
         }
@@ -564,6 +564,12 @@ void loop()
         }while(valueup != 'D');
         EEPROM.write(30, limit);
         EEPROM.write(31, heat);
+        if (((getTemp() > limit) && (heat == 1))||((getTemp() < limit)&&(heat == 0))){
+            digitalWrite(relay1, HIGH);
+        }
+        else {
+            digitalWrite(relay1, LOW);
+        }
         nosavelimit:
         lcd.clear();
         delay(2000);
