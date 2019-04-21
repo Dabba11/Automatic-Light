@@ -541,11 +541,9 @@ void loop()
        lcd.setCursor(1,0);
        lcd.print("SAVE SETTING?");
        lcd.setCursor(0,1);
-       lcd.print("-OK");
-       lcd.setCursor(5,1);
-       lcd.print("or");            
+       lcd.print("A-OK");         
        lcd.setCursor(9,1);
-       lcd.print("BACK");
+       lcd.print("D-NO");
        timeThen = millis();
         do{
             delay(800);
@@ -624,11 +622,9 @@ void loop()
                                  lcd.setCursor(1,0);
                                  lcd.print("SAVE SCHEDULE");
                                  lcd.setCursor(0,1);
-                                 lcd.print("-OK");
-                                 lcd.setCursor(5,1);
-                                 lcd.print("or");            
+                                 lcd.print("D-OK");        
                                  lcd.setCursor(9,1);
-                                 lcd.print("BACK");
+                                 lcd.print("A-NO");
                                  timeThen = millis();
                                       do{
                                        delay(800);
@@ -654,7 +650,7 @@ void loop()
                                        } 
                               lcd.noBlink(); 
                               firstPagedisplay();
-        
+                              displayTime();
    }
   
    //-----------------clock setting----------------------------------------
@@ -830,11 +826,9 @@ void loop()
              lcd.setCursor(1,0);
              lcd.print("SAVE CLOCK?");
              lcd.setCursor(0,1);
-             lcd.print("-OK");
-             lcd.setCursor(5,1);
-             lcd.print("or");            
+             lcd.print("A-OK");        
              lcd.setCursor(9,1);
-             lcd.print("BACK");
+             lcd.print("D-NO");
              timeThen = millis();
             do{
               delay(800);
