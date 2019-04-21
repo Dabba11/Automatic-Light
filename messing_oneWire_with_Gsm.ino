@@ -541,9 +541,9 @@ void loop()
        lcd.setCursor(1,0);
        lcd.print("SAVE SETTING?");
        lcd.setCursor(0,1);
-       lcd.print("A-OK");         
+       lcd.print("D-OK");         
        lcd.setCursor(9,1);
-       lcd.print("D-NO");
+       lcd.print("A-NO");
        timeThen = millis();
         do{
             delay(800);
@@ -825,9 +825,9 @@ void loop()
              lcd.setCursor(1,0);
              lcd.print("SAVE CLOCK?");
              lcd.setCursor(0,1);
-             lcd.print("A-OK");        
+             lcd.print("D-OK");        
              lcd.setCursor(9,1);
-             lcd.print("D-NO");
+             lcd.print("A-NO");
              timeThen = millis();
             do{
               delay(800);
