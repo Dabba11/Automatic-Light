@@ -53,6 +53,9 @@ char pack[4] = "1415";
 bool checkBalanceTrue = false;
 //byte second, minute, hour;
 unsigned int strength, actual = EEPROM.read(29);
+bool heat = EEPROM.read(31);
+byte limit = EEPROM.read(30);
+
 bool btmp1;
 char chartmp;
 byte hourtmp2;
@@ -280,27 +283,36 @@ void setup()
     mySerialFlush();
     //wtd_disable();
     displayTime(); 
-
-    delay(3000);
- 
-}
-
-void(* resetFunc) (void) = 0;//declare reset function at address 0
-bool checked = false;
-bool heat = EEPROM.read(31);
-byte limit = EEPROM.read(30);
-
-void loop()
-{
     if (((getTemp() > limit) && (heat == 1))||((getTemp() < limit)&&(heat == 0))){
         digitalWrite(relay1, HIGH);
     }
     else {
         digitalWrite(relay1, LOW);
     }
+    delay(3000);
+    
+}
+
+void(* resetFunc) (void) = 0;//declare reset function at address 0
+bool checked = false;
+byte count = 0;
+unsigned int tempsum = 0;
+unsigned long newTime = millis();
+unsigned int tempavg;
+void loop()
+{
+    if ((millis() - newTime) >= 9999){
+        tempsum += getTemp();
+        count++;
+        newTime = millis();
+        if (count = 10){
+            tempavg = tempsum/10;
+            count = 0;
+            tempsum = 0;
+        }
+    }
     //delay(3000);
     timeThen = millis()/60000;
-
     if((millis() - rtcdelaytime) >= 1){
         displayTime(); // display the real-time clock data on the Serial Monitor,
         rtcdelaytime = millis()/60000;
@@ -400,6 +412,12 @@ void loop()
                 }
             }
         }
+        if (((tempavg > limit) && (heat == 1))||((tempavg < limit)&&(heat == 0))){
+            digitalWrite(relay1, HIGH);
+        }
+        else {
+            digitalWrite(relay1, LOW);
+        }
         if(sentbucket == 1){
             sendSMS(clientNum);
             mySerialFlush();
@@ -486,25 +504,28 @@ void loop()
             }
         }while(valueup != 'D');
         lcd.clear();
-        delay(700);
+        delay(3000);
         lcd.setCursor(0,0);
         lcd.print("Choose Set.(C)");
         lcd.setCursor(3, 1);
-        lcd.print("Cooler");
+        lcd.print("Heater");
+        heat = 1;
         timeThen = millis();
         delay(3000);
         do{
             delay(800);
             char valueup = getButton();
-            if ((valueup == 'C') && (heat == 1)){
-                lcd.setCursor(3,1);
-                lcd.print("Cooler");
-                heat = 0;
-            }
-            if ((valueup == 'C') && (heat == 0)){
-                lcd.setCursor(3,1);
-                lcd.print("Heater");
-                heat = 1;
+            if (valueup == 'C'){
+                if (heat == 1){
+                    lcd.setCursor(3,1);
+                    lcd.print("Cooler");
+                    heat = 0;
+                }
+                if (heat == 0){
+                    lcd.setCursor(3,1);
+                    lcd.print("Heater");
+                    heat = 1;
+                }
             }
             if (((millis() - timeThen) >= 120000)){
                 timeThen = millis();
@@ -513,7 +534,6 @@ void loop()
         }while(valueup != 'D');
         delay(1000);
        lasttime:
-        lcd.noBlink();
         lcd.clear();
         delay(3000);
        lcd.setCursor(1,0);
