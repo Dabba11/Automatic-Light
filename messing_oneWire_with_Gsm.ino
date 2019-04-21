@@ -297,7 +297,7 @@ void(* resetFunc) (void) = 0;//declare reset function at address 0
 bool checked = false;
 byte count = 0;
 unsigned int tempsum = 0;
-unsigned int tempavg;
+unsigned int tempavg = 0;
 void loop()
 {
     if ((millis() - newTime) >= 9999){
@@ -412,11 +412,13 @@ void loop()
                 }
             }
         }
-        if ((((tempavg > limit) && (heat == 1))||((tempavg < limit)&&(heat == 0))) && (tempavg != 0){
-            digitalWrite(relay1, HIGH);
-        }
-        else {
-            digitalWrite(relay1, LOW);
+        if (tempavg != 0){
+            if (((tempavg > limit) && (heat == 1))||((tempavg < limit)&&(heat == 0))){
+                digitalWrite(relay1, HIGH);
+            }
+            else {
+                digitalWrite(relay1, LOW);
+            }
         }
         if(sentbucket == 1){
             sendSMS(clientNum);
