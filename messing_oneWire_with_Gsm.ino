@@ -54,8 +54,9 @@ bool checkBalanceTrue = false;
 //byte second, minute, hour;
 unsigned int strength, actual = EEPROM.read(29);
 bool heat = EEPROM.read(31);
-byte limit = EEPROM.read(30);
+int limit = EEPROM.read(30);
 unsigned long newTime;
+unsigned long signalcall;
 bool btmp1;
 char chartmp;
 byte hourtmp2;
@@ -164,26 +165,27 @@ byte bar4[8] = {
 
 void setup()
 {
-  delay(5000);
-  lcd.begin(16,2);
-  mySerial.begin(9600);
-  Wire.begin();
-  pinMode(gsmReset,OUTPUT);
-  digitalWrite(gsmReset, LOW);
-  lcd.createChar(0, pole);
-  lcd.createChar(1, bar1);
-  lcd.createChar(2, bar2);
-  lcd.createChar(3, bar3);
-  lcd.createChar(4, bar4); 
-  timeClear = millis();
-  //Serial.begin(9600);
-  delay(100);
-  pinMode(relayPin,OUTPUT);
-  //pinMode(lcdVcc,OUTPUT);
-  //digitalWrite(lcdVcc,HIGH);
-  pinMode(buzzerPin,OUTPUT);
-  pinMode(relay1, OUTPUT);
-  delay(1000);
+    delay(20000);
+    lcd.begin(16,2);
+    Serial.begin(9600);
+    mySerial.begin(9600);
+    Wire.begin();
+    pinMode(gsmReset,OUTPUT);
+    digitalWrite(gsmReset, LOW);
+    lcd.createChar(0, pole);
+    lcd.createChar(1, bar1);
+    lcd.createChar(2, bar2);
+    lcd.createChar(3, bar3);
+    lcd.createChar(4, bar4); 
+    timeClear = millis();
+    //Serial.begin(9600);
+    delay(100);
+    pinMode(relayPin,OUTPUT);
+    //pinMode(lcdVcc,OUTPUT);
+    //digitalWrite(lcdVcc,HIGH);
+    pinMode(buzzerPin,OUTPUT);
+    pinMode(relay1, OUTPUT);
+    delay(1000);
 
 //KP2.setHoldTime(80000);
 //  myKeypad.setDebounceTime(200);
@@ -236,9 +238,7 @@ void setup()
           delay(1000);
          j++;i++;
       }
-      delay(2000);
-    
-
+      
 //      for(i = 1;i <EEPROM.length(); i++){
 //        int sa = EEPROM.read(i);
 //        lcd.setCursor(9,0);   
@@ -246,13 +246,12 @@ void setup()
 //        delay(1000);
 //       lcd.clear();      
 //      }
-
+      delay(2500);
       digitalWrite(buzzerPin,HIGH);
       delay(1000);
       digitalWrite(buzzerPin,LOW);
 
      if(checkPower()){
-        
         mySerial.write("AT+CSCLK=0\r");
         delay(500);
         mySerial.write("ATE0\r");
@@ -266,7 +265,7 @@ void setup()
             strength = balance;
             delay(1000);
             mySerialFlush();
-            delay(6000);
+            delay(3000);
     }
 
     firstPagedisplay();
@@ -291,6 +290,7 @@ void setup()
     delay(3000);
     newTime = millis();
     rtcdelaytime = (millis()/60000)+1;
+    signalcall = (millis()/60000)+1;
 }
 
 void(* resetFunc) (void) = 0;//declare reset function at address 0
@@ -298,6 +298,7 @@ bool checked = false;
 byte count = 0;
 unsigned int tempsum = 0;
 unsigned int tempavg = 0;
+bool audaa = false;
 void loop()
 {
     if ((millis() - newTime) >= 9999){
@@ -310,16 +311,16 @@ void loop()
             tempsum = 0;
         }
     }
-    
+
     //delay(3000);
     timeThen = millis()/60000;
-    if((millis() - rtcdelaytime) >= 1){
+    if((timeThen - rtcdelaytime) >= 1){
         displayTime(); // display the real-time clock data on the Serial Monitor,
         rtcdelaytime = millis()/60000;
-
-              if(checkWith("AT+CSQ\r\n","+CSQ: ",2000,CMD)){  /*Signal Strength extraction*/
+        if(checkWith("AT+CSQ\r\n","+CSQ: ",2000,CMD)){  /*Signal Strength extraction*/
             strength = balance;
             delay(1000);
+            
             mySerialFlush();
         }
         if(checkBalanceTrue == true){
@@ -343,7 +344,7 @@ void loop()
         }
         
         byte flag3=0,flag4=0;
-     
+      
         if(hour <12){
             for( byte i=0;i<12;i++){
                 if(((arrayam[i] == hour) && (arrayam[i] !=0)) ||( (12-arrayam[i] == hour) && (arrayam[i] == 12)) ){
@@ -359,7 +360,7 @@ void loop()
                         delay(1000);
                         flag1=1;
                     }
-                    if (firstOff == 1){
+                    if ((firstOff == 1)&&(audaa == false)){
                         sentbucket = 0;
                         firstOff = 0;
                     } 
@@ -375,6 +376,7 @@ void loop()
                     flag1 = 0;
                     digitalWrite(buzzerPin,LOW);
                     delay(1000);
+                    audaa = true;
                 }
             }
         }
@@ -394,7 +396,7 @@ void loop()
                         flag2=1;
                         delay(2000);
                     }
-                    if (firstOff == 1){
+                    if ((firstOff == 1)&&(audaa == false)){
                         sentbucket = 0;
                         firstOff = 0;
                     }
@@ -409,6 +411,7 @@ void loop()
                     flag2 = 0;
                     digitalWrite(buzzerPin,LOW);
                     delay(2000);
+                    audaa = true;
                 }
             }
         }
@@ -467,9 +470,7 @@ void loop()
         }
     }
  
- 
-    
-
+   
     byte len1;
     byte len2;
     byte k=12;
@@ -513,16 +514,17 @@ void loop()
         lcd.print("Heater");
         heat = 1;
         timeThen = millis();
-        delay(3000);
+        delay(1000);
         do{
             delay(800);
-            char valueup = getButton();
-            if (valueup == 'C'){
+            char valueloop = getButton();
+            if (valueloop == 'C'){
                 if (heat == 1){
                     lcd.setCursor(3,1);
                     lcd.print("Cooler");
                     heat = 0;
                 }
+                delay(2000);
                 if (heat == 0){
                     lcd.setCursor(3,1);
                     lcd.print("Heater");
@@ -533,7 +535,7 @@ void loop()
                 timeThen = millis();
                 goto lasttime;
             }
-        }while(valueup != 'D');
+        }while(valueloop != 'D');
         delay(1000);
        lasttime:
         lcd.clear();
@@ -542,7 +544,7 @@ void loop()
        lcd.print("SAVE SETTING?");
        lcd.setCursor(0,1);
        lcd.print("D-OK");         
-       lcd.setCursor(9,1);
+       lcd.setCursor(8,1);
        lcd.print("A-NO");
        timeThen = millis();
         do{
@@ -555,15 +557,16 @@ void loop()
                 else{
                     limit = 0;
                 }
-                break;
+                goto nosavelimit;
             }
             if ((millis() - timeThen) >= 60000){
                 timeThen = millis(); timeClear = millis();
-                break;
+                goto nosavelimit;
             }
         }while(valueup != 'D');
         EEPROM.write(30, limit);
         EEPROM.write(31, heat);
+        nosavelimit:
         if (((getTemp() > limit) && (heat == 1))||((getTemp() < limit)&&(heat == 0))){
             digitalWrite(relay1, HIGH);
             tempavg = 0;
@@ -575,6 +578,7 @@ void loop()
         lcd.clear();
         delay(2000);
         firstPagedisplay();
+        displayTime();
     }
  
     if(valueloop == 'C'){  
@@ -1104,19 +1108,19 @@ void firstPagedisplay(){
       lcd.clear();
       delay(3000);
       
-      lcd.setCursor(0,0);
+      lcd.setCursor(1,0);
       lcd.write(byte(0));
       if (strength > 0){
-          lcd.setCursor(0,0);
+          lcd.setCursor(1,0);
           lcd.write(byte(1));
           if (strength >= 9){
-              lcd.setCursor(1,0);
+              lcd.setCursor(2,0);
               lcd.write(byte(2));
               if (strength >= 19){
-                  lcd.setCursor(1,0);
+                  lcd.setCursor(2,0);
                   lcd.write(byte(3));
                   if (strength >= 23){
-                      lcd.setCursor(1,0);
+                      lcd.setCursor(2,0);
                       lcd.write(byte(4));
                   }
               }
@@ -1130,7 +1134,7 @@ void firstPagedisplay(){
       else{
           lcd.print(actual);
       }
-      lcd.setCursor(12,1);
+      lcd.setCursor(11,1);
       int temperat = getTemp();
       lcd.print(temperat);
       lcd.print((char)223); //The degree symbol
@@ -1235,9 +1239,14 @@ bool checkWith(const char* cmd, const char* resp, unsigned int timeout, DataType
     unsigned int i;
     char c;
     int length1 = strlen(cmd);
+    Serial.print("Len at cmd");
+    Serial.println(length1);
+    
     //-------------------------------------- cmd send area ------------------------------
+    
     for (i=0; i<length1; i++){
         mySerial.write(cmd[i]);
+        Serial.print(cmd[i]);
     }
 
     //-------------------------------------------------cmd area--------------------------------
@@ -1251,9 +1260,11 @@ bool checkWith(const char* cmd, const char* resp, unsigned int timeout, DataType
         while(1){
             if(mySerial.available() > 0){
                 c = mySerial.read();
+                Serial.print(c);
                 sum = (c == resp[sum]? sum+1: 0);
                 if(sum == len){
                     // ---------------------------------------
+                    Serial.println("inside sum == length");
                     if(type == CMD){
                         balance = 0;
                         while(1){
@@ -1266,9 +1277,11 @@ bool checkWith(const char* cmd, const char* resp, unsigned int timeout, DataType
                                 }
                                 else{
                                     balance = balance * 10;
+                                    Serial.print(balance);
                                 }
                                 if(call == true){
                                     sajalnum[i] = c;
+                                    Serial.print(sajalnum[i]);
                                     i++;
                                 }
                                 balance = (balance + (c - '0'));              
@@ -1300,7 +1313,7 @@ bool checkPower(){
         digitalWrite(gsmReset,HIGH);
         delay(2000);
         digitalWrite(gsmReset,LOW);
-        delay(5000);
+        delay(10000);
         mySerialFlush();
         return false;
     }
