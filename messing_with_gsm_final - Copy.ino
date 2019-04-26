@@ -168,7 +168,7 @@ void setup()
 {
     delay(5000);
     lcd.begin(16,2);
-    Serial.begin(9600);
+   // Serial.begin(9600);
     mySerial.begin(9600);
     Wire.begin();
     pinMode(gsmReset,OUTPUT);
@@ -283,15 +283,15 @@ void setup()
     //wtd_disable();
     if (((temperat > limit) && (heat == 1))||((temperat < limit)&&(heat == 0))){
         digitalWrite(relay1, HIGH);
-        Serial.println("Kina HIgh??");
-        Serial.print(heat);
-        Serial.print(limit);
+        //Serial.println("Kina HIgh??");
+        //Serial.print(heat);
+        //Serial.print(limit);
     }
     else {
         digitalWrite(relay1, LOW);
-        Serial.println("Vayo huna ta");
-        Serial.print(heat);
-        Serial.print(limit);
+        //ln("Vayo huna ta");
+        //(heat);
+        //(limit);
     }
     delay(3000);
     newTime = millis();
@@ -311,8 +311,8 @@ char valueup;
 void loop()
 {
     if ((millis() - newTime) >= 10000){
-        Serial.println("avg line vitra");
-        Serial.print(tempavg);
+        //ln("avg line vitra");
+        //(tempavg);
         temperat = getTemp();
         tempsum += temperat;
         count++;
@@ -447,15 +447,15 @@ void loop()
             EEPROM.write(32, flag2);
         }
         if (tempavg != 0){
-            Serial.println("First ma haina");
-            Serial.print(tempavg);
+            //ln("First ma haina");
+            //(tempavg);
             if (((tempavg > limit) && (heat == 1))||((tempavg < limit)&&(heat == 0))){
                 digitalWrite(relay1, HIGH);
-                Serial.println("Thik xa la");
+                //ln("Thik xa la");
             }
             else {
                 digitalWrite(relay1, LOW);
-                Serial.println("Achanak k vaxa??");
+                //ln("Achanak k vaxa??");
             }
         }
         if(sentbucket == 1){
@@ -522,7 +522,9 @@ void loop()
         lcd.print("Set  Temp :");
         lcd.setCursor(ctmp1,1);
         lcd.blink();
-        int limit2;    
+        int limit2; 
+        limit = 0;
+        pause:   
         do{
             delay(800);
             valueup = getButton();
@@ -531,11 +533,14 @@ void loop()
                 lcd.print(valueup);
                 limit2 = valueup - '0';
                 if (ctmp1 == 7){
-                    limit2 = limit*10;
-                    limit = (valueup - '0') + limit2;
+                    limit = limit*10;
+                    limit = limit + limit2;
                     ctmp1++;
+                    goto pause;
                 }
+                
                 ctmp1++;
+                limit = limit2;
                 
             }
             if(valueup == 'A'){
@@ -543,6 +548,7 @@ void loop()
                 limit = 0;
                 lcd.setCursor(6,1);
                 lcd.print("        ");
+                lcd.setCursor(6,1);
             }
             if (((millis() - timeThen) >= 120000)){
                 timeThen = millis();
@@ -595,12 +601,8 @@ void loop()
             delay(800);
             valueup = getButton();
             if(valueup == 'A'){
-                if (heat == 1){
-                    limit = 100; 
-                }
-                else{
-                    limit = 0;
-                }
+                    limit = EEPROM.read(30);
+                    heat = EEPROM.read(31);
                 goto nosavelimit;
             }
             if ((millis() - timeThen) >= 60000){
@@ -621,8 +623,8 @@ void loop()
         tempavg = 0;
         count = 0;
         tempsum = 0;
-        Serial.println(EEPROM.read(31));
-        Serial.println(EEPROM.read(30));
+        //ln(EEPROM.read(31));
+        //ln(EEPROM.read(30));
         lcd.clear();
         delay(2000);
         firstPagedisplay();
@@ -1298,14 +1300,14 @@ bool checkWith(const char* cmd, const char* resp, unsigned int timeout, DataType
     unsigned int i;
     char c;
     int length1 = strlen(cmd);
-    Serial.print("Len at cmd");
-    Serial.println(length1);
+    //("Len at cmd");
+    //ln(length1);
     
     //-------------------------------------- cmd send area ------------------------------
     
     for (i=0; i<length1; i++){
         mySerial.write(cmd[i]);
-        Serial.print(cmd[i]);
+        //(cmd[i]);
     }
 
     //-------------------------------------------------cmd area--------------------------------
@@ -1319,11 +1321,11 @@ bool checkWith(const char* cmd, const char* resp, unsigned int timeout, DataType
         while(1){
             if(mySerial.available() > 0){
                 c = mySerial.read();
-                Serial.print(c);
+                //(c);
                 sum = (c == resp[sum]? sum+1: 0);
                 if(sum == len){
                     // ---------------------------------------
-                    Serial.println("inside sum == length");
+                    //ln("inside sum == length");
                     if(type == CMD){
                         balance = 0;
                         while(1){
@@ -1336,11 +1338,11 @@ bool checkWith(const char* cmd, const char* resp, unsigned int timeout, DataType
                                 }
                                 else{
                                     balance = balance * 10;
-                                    Serial.print(balance);
+                                    //(balance);
                                 }
                                 if(call == true){
                                     sajalnum[i] = c;
-                                    Serial.print(sajalnum[i]);
+                                    //(sajalnum[i]);
                                     i++;
                                 }
                                 balance = (balance + (c - '0'));              
@@ -1384,6 +1386,7 @@ void mySerialFlush(){
         mySerial.read();
     }
 }
+
 int getTemp(void){
     float A = 1.009249522e-03, B = 2.378405444e-04, C = 2.019202697e-07;
     //Voltage Divider between 5Volt and sensor end
