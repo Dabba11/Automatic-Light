@@ -30,6 +30,7 @@ U8G2_ST7920_128X64_1_SW_SPI u8g2(U8G2_R0, 3, 5, 2); //u8g2(U8G2_R0, En, Rw, Rs) 
 //MicroController mapping, u8g2(U8G2_R0, 3, 5, 2)
 /*The "1" in initialization means it reserves 128 bytes of buffer, "2" reserves 256 bytes and "F" uses 1024 bytes*/
 SoftwareSerial mySerial(9, 10);
+bool firstOff = !(EEPROM.read(28));
 
 #define DS3231_I2C_ADDRESS 0x68
 #define relayPin A1
@@ -43,7 +44,7 @@ enum DataType {
     CALL = 2
 };
 byte hr = 0, mi = 0;
-bool blcReturn = false;
+bool blcReturn = true;
 bool call;
 bool getPack = false;
 char sajalnum[10];
@@ -52,7 +53,7 @@ unsigned int balance;
 bool notinitialized = true;
 unsigned int previousIndex = 0;
 bool change;
-unsigned long timeThen;
+unsigned long timeThen, newTime;
 //unsigned long timeNow;
 //const byte numRows   = 4;
 //const byte numCols   = 4;
@@ -82,6 +83,7 @@ OnewireKeypad <Print, 16 > KP2(Serial, KEYS, 4, 4, A0, 4700, 1000 );
 byte second, minute, hour;
 unsigned int strength, actual = EEPROM.read(29);
 int Rout;
+bool timeup;
 
 void setup(void) {
     delay(5000);
@@ -159,10 +161,13 @@ void setup(void) {
     mySerialFlush();
     wdt_disable();
     digitalWrite(lcdVcc, LOW);
+    newTime = millis();
+    
 }
 
 //void(* resetFunc) (void) = 0; //declare reset function at address 0
-bool firstOff = !(EEPROM.read(28));
+bool audaa = false;
+bool feriAudaa = EEPROM.read(32);
 
 void loop(void) {
 
@@ -220,16 +225,22 @@ void loop(void) {
                         delay(1000);
                         flag1=1;
                     }
-                    if (firstOff == 1){
+                    if ((firstOff == 1) && (audaa == false)){
                         sentbucket = 0;
                         firstOff = 0;
-                        checkBalanceTrue = false;
-                        
+                    }
+                    if (feriAudaa == 0){
+                        sentbucket = 1;
+                        msgbucket = 1;
                     }
                 }
             }
             if(flag3 == 0){
                 digitalWrite(relayPin,LOW);
+                if (feriAudaa == 1){
+                    sentbucket = 1;
+                    feriAudaa = 0;
+                }
                 if(flag1 == 1){
                     digitalWrite(buzzerPin,HIGH);
                     msgbucket = 0;
@@ -240,6 +251,7 @@ void loop(void) {
                     delay(1000);
                 }
             }
+            EEPROM.write(32, flag1);
         }
         if(hour >11){
             for(i=0; i<12; i++){
@@ -255,16 +267,23 @@ void loop(void) {
                         digitalWrite(buzzerPin,LOW);
                         flag2=1;
                         delay(2000);
-                    }
-                    if (firstOff == 1){
-                        sentbucket = 0;
-                        firstOff = 0;
-                        checkBalanceTrue = false;
+                        if ((firstOff == 1)&&(audaa == false)){
+                            sentbucket = 0;
+                            firstOff = 0;
+                        }
+                        if (feriAudaa == 0){
+                            sentbucket = 1;
+                            msgbucket = 1;
+                        }
                     }
                 }
             }
             if(flag4 == 0){
                 digitalWrite(relayPin,LOW);
+                if (feriAudaa == 1){
+                    sentbucket = 1;
+                    feriAudaa =0;
+                }
                 if (flag2 == 1){
                     digitalWrite(buzzerPin,HIGH);
                     msgbucket = 0;
@@ -274,6 +293,7 @@ void loop(void) {
                     delay(2000);
                 }
             }
+            EEPROM.write(32, flag2);
         }
         if(sentbucket == 1){
             sendSMS(clientNum);
@@ -742,6 +762,18 @@ void loop(void) {
           }while(u8g2.nextPage());
           rtcdelaytime = millis()/60000;
       }
+      if (hour == 0){
+          if (timeup ==false){
+              if ((minute >= 5)&&(minute <=10)){
+                  minute = minute + 1;
+                  setDS3231time(second, minute, hour);
+                  timeup = true;
+              }
+          }
+       }
+       else{
+          timeup = false;
+       }
 
 }
 
@@ -1097,7 +1129,9 @@ bool sendSMS(char* num){
     }
      array1 +="\"\r\n";
 
-    String msgup = "FARM:Light is "; /*47 length*/
+    String msgup = "FARM ALERT ";
+    msgup = msgup + String(hour) + ":" + String(minute);
+    msgup += " light is ";
     if(msgbucket == 1){
         msgup += "ON\nSchedule\nAM: ";
     }
@@ -1142,7 +1176,7 @@ bool sendSMS(char* num){
 //        return false;
 //    }
     if(getPack){
-      msgup = "SMS300";
+      msgup = "SMS70";
       array1 = "AT+CMGS=\"+9771415\"\r\n";
     }
     mySerial.println(array1);
