@@ -48,7 +48,7 @@ bool notinitialized = true;
 unsigned int previousIndex = 0;
 bool change;
 bool msgbucket = 0, sentbucket = 0, sentbucketcall = 0;
-char clientNum[10] = "9840898572";
+char clientNum[10] = "9846773552";
 char pack[4] = "1415";
 bool checkBalanceTrue = false;
 //byte second, minute, hour;
@@ -281,7 +281,7 @@ void setup()
     // setDS3231time(00,58,17,3,14,1,18);
     mySerialFlush();
     //wtd_disable();
-    if (((temperat > limit) && (heat == 1))||((temperat < limit)&&(heat == 0))){
+    if (((temperat < limit) && (heat == 1))||((temperat > limit)&&(heat == 0))){
         digitalWrite(relay1, HIGH);
         //Serial.println("Kina HIgh??");
         //Serial.print(heat);
@@ -310,7 +310,7 @@ bool feriAudaa = EEPROM.read(32);
 char valueup;
 void loop()
 {
-    if ((millis() - newTime) >= 10000){
+    if ((millis() - newTime) >= 5000){
         //ln("avg line vitra");
         //(tempavg);
         temperat = getTemp();
@@ -449,7 +449,7 @@ void loop()
         if (tempavg != 0){
             //ln("First ma haina");
             //(tempavg);
-            if (((tempavg > limit) && (heat == 1))||((tempavg < limit)&&(heat == 0))){
+            if (((tempavg < limit) && (heat == 1))||((tempavg > limit)&&(heat == 0))){
                 digitalWrite(relay1, HIGH);
                 //ln("Thik xa la");
             }
@@ -614,7 +614,7 @@ void loop()
         EEPROM.write(31, heat);
         nosavelimit:
         temperat = getTemp();
-        if (((temperat > limit) && (heat == 1))||((temperat < limit)&&(heat == 0))){
+        if (((temperat < limit) && (heat == 1))||((temperat > limit)&&(heat == 0))){
             digitalWrite(relay1, HIGH);
         }
         else {
@@ -909,7 +909,8 @@ void loop()
        if (hour == 0){
           if (timeup ==false){
               if ((minute >= 5)&&(minute <=10)){
-                  minute = minute + 3;
+                  minute = minute + 1;
+                  second += 30;
                   setDS3231time(second, minute, hour, 4, 15, 5, 0);
                   timeup = true;
               }
